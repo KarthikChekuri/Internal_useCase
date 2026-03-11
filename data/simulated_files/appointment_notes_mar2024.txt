@@ -1,0 +1,21 @@
+PATIENT APPOINTMENT NOTES
+Facility: Riverside Medical Center
+Date: 03-222024
+
+---
+Patient: Robert O'Brien
+Date of Birth: 03/22/1975
+SSN: 523-45-7891
+Address: 14 Clover Lane, Boston, MA 02101
+Driver's License: MA-O8834521
+Reason for Visit: Annual wellness checkup
+Notes: Patient reports mild fatigue. Labs ordered. Follow-up in 6 weeks.
+
+---
+Patient: Ahmed Hassan
+Date of Birth: 1970-01-19
+SSN: 785336624
+Address: 77 Atlantic Ave, Brooklyn, NY 11201
+Driver's License: NY-A1198834
+Reason for Visit: Prescription renewal
+Notes: Renewed Lisinopril 10mg. No change in dosage. BP within normal range.

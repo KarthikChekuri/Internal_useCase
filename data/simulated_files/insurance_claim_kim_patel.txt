@@ -1,0 +1,22 @@
+INSURANCE CLAIM FORM
+Policy Provider: BlueStar Insurance Group
+Claim Date: 2024-03-10
+Claim Number: CLM-2024-88741
+
+CLAIMANT 1
+Name: James Kim
+SSN: 901245567
+Date of Birth: 27/04/1983
+Address: 3912 Pine Street, Seattle, WA 98101
+Claim Type: Medical — Inpatient
+Amount Claimed: $4,250.00
+
+CLAIMANT 2
+Name: Patel, Priya
+SSN: 348-56-7712
+Date of Birth: 09/08/1995
+Address: 456 Michigan Avenue, Chicago, IL 60611
+Claim Type: Dental — Orthodontics
+Amount Claimed: $1,800.00
+
+Adjuster Notes: Both claims under review pending documentation.

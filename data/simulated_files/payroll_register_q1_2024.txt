@@ -1,0 +1,13 @@
+PAYROLL REGISTER
+Pay Period: 2024-Q1 (January–March)
+Entity: Orion Manufacturing Corp.
+Emp ID   Name                      SSN             Gross Pay    Net Pay State
+--------------------------------------------------------------------------------
+C001     Robert O'Brien            523-45-7891    $23,210.00 $16,711.00 MA  
+C002     J. Smith-Jones            412673309      $23,231.00 $16,726.00 TX  
+C003     Karthik Chekuri           634-21-8805    $21,360.00 $15,379.00 CA  
+C004     Maria Rodriguez           291884451      $24,208.00 $17,429.00 FL  
+C005     Ahmed Hassan              785-33-6624    $25,534.00 $18,384.00 NY  
+--------------------------------------------------------------------------------
+Payroll Administrator: ____________________
+Approval Date: ____________________________

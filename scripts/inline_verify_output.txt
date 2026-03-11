@@ -1,0 +1,62 @@
+=== database.py ===
+  PASS  Base is DeclarativeBase
+  PASS  get_engine callable
+  PASS  get_session_factory callable
+  PASS  get_db callable
+=== DLU ===
+  PASS  tablename
+  PASS  schema
+  PASS  inherits Base
+  PASS  column GUID
+  PASS  column TEXTPATH
+  PASS  column fileName
+  PASS  column fileExtension
+  PASS  column caseName
+  PASS  column isExclusion
+  PASS  column MD5
+  PASS  GUID primary_key
+=== MasterPII ===
+  PASS  tablename
+  PASS  schema
+  PASS  inherits Base
+  PASS  exact 14 columns
+  PASS  ID primary_key
+  PASS  ID is Integer
+  PASS  DOB is Date
+  PASS  Fullname len=250
+  PASS  FirstName len=100
+  PASS  LastName len=100
+  PASS  SSN len=11
+  PASS  DriversLicense len=50
+  PASS  ZipCode len=10
+  PASS  City len=100
+  PASS  State len=2
+  PASS  Country len=50
+=== SearchResult ===
+  PASS  tablename
+  PASS  schema
+  PASS  inherits Base
+  PASS  ID primary_key
+  PASS  CustomerID FK to master_pii
+  PASS  FileGUID FK to datalakeuniverse
+  PASS  LeakedFullname is Boolean
+  PASS  LeakedFirstName is Boolean
+  PASS  LeakedLastName is Boolean
+  PASS  LeakedDOB is Boolean
+  PASS  LeakedSSN is Boolean
+  PASS  LeakedDriversLicense is Boolean
+  PASS  LeakedAddress1 is Boolean
+  PASS  LeakedAddress2 is Boolean
+  PASS  LeakedAddress3 is Boolean
+  PASS  LeakedZipCode is Boolean
+  PASS  LeakedCity is Boolean
+  PASS  LeakedState is Boolean
+  PASS  LeakedCountry is Boolean
+  PASS  OverallConfidence is Float
+  PASS  AzureSearchScore is Float
+  PASS  NeedsReview is Boolean
+  PASS  NeedsReview default False/0
+  PASS  SearchedAt server_default exists
+  PASS  SearchedAt is DateTime
+
+=== SUMMARY: 56 passed, 0 failed ===

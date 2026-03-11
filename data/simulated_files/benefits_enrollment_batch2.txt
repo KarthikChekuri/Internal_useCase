@@ -1,0 +1,29 @@
+ANNUAL BENEFITS ENROLLMENT FORM
+Open Enrollment Period: November 1 – November 30, 2023
+HR System: PeopleFirst HRIS
+
+PARTICIPANT 1
+Employee ID: C004
+Name: Maria Rodriguez
+DOB: 1980-06-30
+SSN: 291-88-4451
+Coverage Selected: Medical PPO + Dental + Vision
+Effective Date: 01/01/2024
+
+PARTICIPANT 2
+Employee ID: C007
+Name: Kim, James
+DOB: 04/27/1983
+SSN: 901245567
+Coverage Selected: HMO + Dental
+Effective Date: 01/01/2024
+
+PARTICIPANT 3
+Employee ID: C010
+Name: Susan Whitfield
+DOB: 05/08/1978
+SSN: 143-62-9908
+Coverage Selected: Medical PPO
+Effective Date: 01/01/2024
+
+Authorized HR Signature: _______________________

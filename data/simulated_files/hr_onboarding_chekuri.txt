@@ -1,0 +1,29 @@
+HUMAN RESOURCES ONBOARDING FORM
+Company: Meridian Technologies LLC
+Form Completed: 2024-01-15
+
+EMPLOYEE INFORMATION
+Full Name: Karthik Chekuri
+First Name: Karthik
+Last Name: Chekuri
+Date of Birth: 07/15/1992
+Social Security Number: 634-21-8805
+Driver License No.: CA-K3344112
+Home Address: 2200 Wilshire Blvd Suite 510
+City: Los Angeles
+State: CA
+ZIP: 90057
+
+EMPLOYMENT DETAILS
+Position: Senior Analyst
+Department: Operations
+Start Date: 02/01/2024
+Salary Grade: G7
+
+EMERGENCY CONTACT
+Name: Jane Doe
+Relationship: Spouse
+Phone: 555-000-1234
+
+I certify that the above information is accurate.
+Signature: ___________________  Date: ______________

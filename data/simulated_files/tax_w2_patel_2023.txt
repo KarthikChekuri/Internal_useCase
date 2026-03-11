@@ -1,0 +1,21 @@
+W-2 WAGE AND TAX STATEMENT — Tax Year 2023
+Employer: Apex Global Solutions Inc.
+EIN: 47-1234567
+Employer Address: 500 Corporate Plaza, Denver, CO 80202
+
+EMPLOYEE INFORMATION
+Employee Name: Priya Patel
+SSN: 348-56-7712
+Address: 456 Michigan Avenue
+         Chicago, IL 60611
+
+BOX 1 — Wages, Tips: $82,500.00
+BOX 2 — Federal Tax Withheld: $16,320.00
+BOX 3 — Social Security Wages: $82,500.00
+BOX 4 — Social Security Tax: $5,115.00
+BOX 12 — Code D (401k): $6,500.00
+BOX 16 — State Wages: $82,500.00
+BOX 17 — State Tax: $4,537.50
+State: IL
+
+This document is provided for tax purposes only.

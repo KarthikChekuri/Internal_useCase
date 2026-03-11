@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+sqlalchemy[asyncio]
+pyodbc
+rapidfuzz
+azure-search-documents
+openpyxl
+xlrd
+xlwt
+pydantic-settings
+python-dotenv
+pytest
+pytest-mock
+httpx

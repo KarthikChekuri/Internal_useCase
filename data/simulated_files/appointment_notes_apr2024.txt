@@ -1,0 +1,21 @@
+PATIENT APPOINTMENT NOTES
+Facility: Riverside Medical Center
+Date: 09-082024
+
+---
+Patient: Priya Patel
+Date of Birth: 09/08/1995
+SSN: 348-56-7712
+Address: 456 Michigan Avenue, Chicago, IL 60611
+Driver's License: IL-P7712349
+Reason for Visit: Annual wellness checkup
+Notes: Patient reports mild fatigue. Labs ordered. Follow-up in 6 weeks.
+
+---
+Patient: James Kim
+Date of Birth: 1983-04-27
+SSN: 901245567
+Address: 3912 Pine Street, Seattle, WA 98101
+Driver's License: WA-J5521190
+Reason for Visit: Prescription renewal
+Notes: Renewed Lisinopril 10mg. No change in dosage. BP within normal range.

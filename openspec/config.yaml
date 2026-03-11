@@ -1,0 +1,26 @@
+schema: spec-driven
+
+context: |
+  Tech stack: Python 3.12+, FastAPI, SQLAlchemy 2.0, pyodbc
+  Database: Local SQL Server (existing DLU table schema)
+  Search: Azure AI Search (already provisioned)
+  Fuzzy matching: rapidfuzz + Azure AI Search phonetic analyzers (Double Metaphone)
+  File parsing: openpyxl (xlsx), xlrd (xls), built-in csv module
+  Testing: pytest
+  API style: RESTful JSON, Pydantic v2 models
+  Environment: Windows 11, development on localhost
+
+rules:
+  proposal:
+    - Include confidence scoring model rationale
+    - Address fuzzy/phonetic name matching strategy
+  specs:
+    - Use Given/When/Then format for scenarios
+    - Include edge cases for name variations and partial matches
+  design:
+    - Include Azure AI Search index schema details
+    - Include three-tier leak detection architecture
+    - Reference existing DLU table schema
+  tasks:
+    - Group tasks by system component (data, indexing, search, API)
+    - Include simulated data generation as first task group

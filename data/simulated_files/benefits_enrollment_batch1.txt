@@ -1,0 +1,29 @@
+ANNUAL BENEFITS ENROLLMENT FORM
+Open Enrollment Period: November 1 – November 30, 2023
+HR System: PeopleFirst HRIS
+
+PARTICIPANT 1
+Employee ID: C001
+Name: Robert O'Brien
+DOB: 1975-03-22
+SSN: 523-45-7891
+Coverage Selected: Medical PPO + Dental + Vision
+Effective Date: 01/01/2024
+
+PARTICIPANT 2
+Employee ID: C003
+Name: Chekuri, Karthik
+DOB: 07/15/1992
+SSN: 634218805
+Coverage Selected: HMO + Dental
+Effective Date: 01/01/2024
+
+PARTICIPANT 3
+Employee ID: C008
+Name: Linda Thornberry
+DOB: 11/12/1967
+SSN: 677-09-3381
+Coverage Selected: Medical PPO
+Effective Date: 01/01/2024
+
+Authorized HR Signature: _______________________

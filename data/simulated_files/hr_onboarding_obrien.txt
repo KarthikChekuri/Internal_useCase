@@ -1,0 +1,29 @@
+HUMAN RESOURCES ONBOARDING FORM
+Company: Meridian Technologies LLC
+Form Completed: 2024-01-15
+
+EMPLOYEE INFORMATION
+Full Name: Robert O'Brien
+First Name: Robert
+Last Name: O'Brien
+Date of Birth: 03/22/1975
+Social Security Number: 523-45-7891
+Driver License No.: MA-O8834521
+Home Address: 14 Clover Lane Apt 3B
+City: Boston
+State: MA
+ZIP: 02101
+
+EMPLOYMENT DETAILS
+Position: Senior Analyst
+Department: Operations
+Start Date: 02/01/2024
+Salary Grade: G7
+
+EMERGENCY CONTACT
+Name: Jane Doe
+Relationship: Spouse
+Phone: 555-000-1234
+
+I certify that the above information is accurate.
+Signature: ___________________  Date: ______________

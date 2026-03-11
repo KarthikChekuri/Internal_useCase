@@ -1,0 +1,22 @@
+INSURANCE CLAIM FORM
+Policy Provider: BlueStar Insurance Group
+Claim Date: 2024-03-10
+Claim Number: CLM-2024-88741
+
+CLAIMANT 1
+Name: Maria Rodgriguez
+SSN: 291884451
+Date of Birth: 30/06/1980
+Address: 305 Biscayne Way, Miami, FL 33101
+Claim Type: Medical — Inpatient
+Amount Claimed: $4,250.00
+
+CLAIMANT 2
+Name: Hassan, Ahmed
+SSN: 785-33-6624
+Date of Birth: 01/19/1970
+Address: 77 Atlantic Ave, Brooklyn, NY 11201
+Claim Type: Dental — Orthodontics
+Amount Claimed: $1,800.00
+
+Adjuster Notes: Both claims under review pending documentation.
