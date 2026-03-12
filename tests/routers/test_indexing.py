@@ -39,6 +39,7 @@ def client():
     app.dependency_overrides.clear()
 
 
+@pytest.mark.skip(reason="V1 endpoint using index_all_files removed in V2; see test_indexing_v2.py")
 class TestIndexAllEndpoint:
     """Tests for POST /index/all."""
 
@@ -104,6 +105,7 @@ class TestIndexAllEndpoint:
             mock_svc.assert_called_once()
 
 
+@pytest.mark.skip(reason="V1 endpoint using index_single_file removed in V2; see test_indexing_v2.py")
 class TestIndexSingleEndpoint:
     """Tests for POST /index/{guid}."""
 

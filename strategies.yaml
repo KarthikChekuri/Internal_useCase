@@ -1,0 +1,28 @@
+# strategies.yaml — Default search strategies for breach PII detection.
+#
+# Each strategy defines which PII fields to use when building an Azure AI
+# Search query. The system runs each strategy as a separate query per customer
+# and merges (unions) the results.
+#
+# Valid field names (from master_data table):
+#   Fullname, FirstName, LastName, DOB, SSN, DriversLicense,
+#   Address1, Address2, Address3, ZipCode, City, State, Country
+
+strategies:
+  - name: fullname_ssn
+    description: Search using the customer's full name and SSN
+    fields:
+      - Fullname
+      - SSN
+
+  - name: lastname_dob
+    description: Search using the customer's last name and date of birth
+    fields:
+      - LastName
+      - DOB
+
+  - name: unique_identifiers
+    description: Search using unique government-issued identifiers (SSN and driver's license)
+    fields:
+      - SSN
+      - DriversLicense

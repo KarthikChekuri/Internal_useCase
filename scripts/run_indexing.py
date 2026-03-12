@@ -15,7 +15,7 @@ from azure.search.documents import SearchClient
 
 from app.config import get_settings
 from app.models.database import get_session_factory
-from app.services.indexing_service import index_all_files
+from app.services.indexing_service import index_all_files_v2 as index_all_files
 
 logger = logging.getLogger(__name__)
 
@@ -28,8 +28,11 @@ def main():
     """
     settings = get_settings()
 
-    # Create DB session
-    session_factory = get_session_factory()
+    # Create DB session using the settings DATABASE_URL
+    engine = __import__('sqlalchemy').create_engine(
+        settings.DATABASE_URL, echo=False, use_setinputsizes=False
+    )
+    session_factory = get_session_factory(engine)
     db = session_factory()
 
     # Create Azure AI Search client

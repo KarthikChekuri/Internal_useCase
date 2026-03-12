@@ -303,10 +303,10 @@ class TestContentFields:
 # ===========================================================================
 
 class TestMetadataFields:
-    """Metadata fields must be present with correct types and properties."""
+    """V2 metadata fields: id (key, MD5), md5, file_path."""
 
     def test_id_field_exists_and_is_key(self):
-        """Index must have an 'id' field that is the document key."""
+        """Index must have an 'id' field that is the document key (MD5 hash)."""
         index = _build_index()
         field = _get_field(index, "id")
         assert field.key is True
@@ -317,28 +317,16 @@ class TestMetadataFields:
         field = _get_field(index, "id")
         assert field.type == SearchFieldDataType.String
 
-    def test_file_guid_field_exists(self):
-        """Index must have a 'file_guid' field."""
+    def test_md5_field_exists(self):
+        """V2: Index must have a 'md5' field."""
         index = _build_index()
-        field = _get_field(index, "file_guid")
+        field = _get_field(index, "md5")
         assert field.type == SearchFieldDataType.String
 
-    def test_file_guid_field_is_filterable(self):
-        """file_guid must be filterable for single-file lookups."""
+    def test_md5_field_is_filterable(self):
+        """md5 must be filterable for single-file lookups."""
         index = _build_index()
-        field = _get_field(index, "file_guid")
-        assert field.filterable is True
-
-    def test_file_name_field_exists(self):
-        """Index must have a 'file_name' field."""
-        index = _build_index()
-        field = _get_field(index, "file_name")
-        assert field.type == SearchFieldDataType.String
-
-    def test_file_name_field_is_filterable(self):
-        """file_name must be filterable."""
-        index = _build_index()
-        field = _get_field(index, "file_name")
+        field = _get_field(index, "md5")
         assert field.filterable is True
 
     def test_file_path_field_exists(self):
@@ -347,29 +335,26 @@ class TestMetadataFields:
         field = _get_field(index, "file_path")
         assert field.type == SearchFieldDataType.String
 
+    # V1 fields removed in V2 — tests skipped to document intentional removal
+    @pytest.mark.skip(reason="V1 field file_guid removed in V2 — id is now MD5 hash")
+    def test_file_guid_field_exists(self):
+        """V1: file_guid field was replaced by id=MD5."""
+        pass
+
+    @pytest.mark.skip(reason="V1 field file_name removed in V2")
+    def test_file_name_field_exists(self):
+        """V1: file_name field removed in V2 (inferred from file_path)."""
+        pass
+
+    @pytest.mark.skip(reason="V1 field file_extension removed in V2 (inferred from file_path at runtime)")
     def test_file_extension_field_exists(self):
-        """Index must have a 'file_extension' field."""
-        index = _build_index()
-        field = _get_field(index, "file_extension")
-        assert field.type == SearchFieldDataType.String
+        """V1: file_extension field removed in V2."""
+        pass
 
-    def test_file_extension_field_is_filterable(self):
-        """file_extension must be filterable for extension-based queries."""
-        index = _build_index()
-        field = _get_field(index, "file_extension")
-        assert field.filterable is True
-
+    @pytest.mark.skip(reason="V1 field case_name removed in V2")
     def test_case_name_field_exists(self):
-        """Index must have a 'case_name' field."""
-        index = _build_index()
-        field = _get_field(index, "case_name")
-        assert field.type == SearchFieldDataType.String
-
-    def test_case_name_field_is_filterable(self):
-        """case_name must be filterable for case-based queries."""
-        index = _build_index()
-        field = _get_field(index, "case_name")
-        assert field.filterable is True
+        """V1: case_name field removed in V2 (no case filtering needed)."""
+        pass
 
 
 # ===========================================================================
@@ -488,15 +473,16 @@ class TestCreateIndex:
 # ===========================================================================
 
 class TestCompleteFieldList:
-    """The index must contain all required fields — no more, no less."""
+    """V2: The index must contain all required V2 fields — no more, no less."""
 
+    # V2 field set: id (MD5 key), md5, file_path + 3 content fields
     EXPECTED_FIELDS = {
-        "id", "file_guid", "file_name", "file_path", "file_extension",
-        "case_name", "content", "content_phonetic", "content_lowercase",
+        "id", "md5", "file_path",
+        "content", "content_phonetic", "content_lowercase",
     }
 
     def test_all_expected_fields_present(self):
-        """Index must contain all 9 expected fields."""
+        """Index must contain all 6 expected V2 fields."""
         index = _build_index()
         actual_fields = {f.name for f in index.fields}
         assert self.EXPECTED_FIELDS.issubset(actual_fields), (
@@ -504,7 +490,7 @@ class TestCompleteFieldList:
         )
 
     def test_no_unexpected_fields(self):
-        """Index must not contain fields beyond the 9 expected ones."""
+        """Index must not contain fields beyond the 6 expected V2 ones."""
         index = _build_index()
         actual_fields = {f.name for f in index.fields}
         unexpected = actual_fields - self.EXPECTED_FIELDS

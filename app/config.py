@@ -21,8 +21,7 @@ class Settings(BaseSettings):
     AZURE_SEARCH_ENDPOINT: str
     AZURE_SEARCH_KEY: str
     AZURE_SEARCH_INDEX: str = "breach-file-index"
-    FILE_BASE_PATH: str
-    CASE_NAME: str
+    STRATEGIES_FILE: str = "strategies.yaml"
 
 
 def get_settings() -> Settings:

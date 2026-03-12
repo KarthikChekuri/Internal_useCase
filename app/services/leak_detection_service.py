@@ -1,4 +1,4 @@
-"""Leak Detection Engine — Phase 3.2.
+"""Leak Detection Engine — Phase 3.2 (V2 Adaptation).
 
 Provides `detect_leaks(file_text, customer_pii) -> LeakDetectionResult`
 that evaluates all 13 PII fields through a three-tier cascade:
@@ -11,6 +11,11 @@ that evaluates all 13 PII fields through a three-tier cascade:
 State is Tier 1 only (too short for substring). Non-name fields stop at
 Tier 2. Disambiguation applies when FirstName found but Fullname and
 LastName not found.
+
+V2 change: detect_leaks() accepts MasterData (V2 table) instead of
+MasterPII (V1). The function accepts any object with the 13 PII field
+attributes (duck-typed via Any). DOB patterns now include European dot
+format (DD.MM.YYYY) in addition to ISO, US, and European slash.
 """
 
 import datetime
@@ -151,7 +156,8 @@ def _generate_dob_patterns(dob: datetime.date) -> list[str]:
     """Generate all date format representations of a DOB.
 
     Returns:
-        List of date strings in ISO, US, and European formats.
+        List of date strings in ISO, US, European slash, and European dot
+        formats. Duplicates are removed (preserving order).
     """
     patterns = []
 
@@ -161,8 +167,11 @@ def _generate_dob_patterns(dob: datetime.date) -> list[str]:
     # US: MM/DD/YYYY
     patterns.append(dob.strftime("%m/%d/%Y"))
 
-    # European: DD/MM/YYYY
+    # European slash: DD/MM/YYYY
     patterns.append(dob.strftime("%d/%m/%Y"))
+
+    # European dot: DD.MM.YYYY
+    patterns.append(dob.strftime("%d.%m.%Y"))
 
     # Deduplicate (e.g., when day == month the US and European are different
     # but ISO is unique; when day > 12 the European format is unambiguous)
@@ -309,10 +318,10 @@ def detect_leaks(file_text: str, customer_pii: Any) -> LeakDetectionResult:
 
     Args:
         file_text: The full text content of the file to scan.
-        customer_pii: Object with attributes for all 13 PII fields
-                      (Fullname, FirstName, LastName, DOB, SSN,
-                       DriversLicense, Address1-3, ZipCode, City,
-                       State, Country).
+        customer_pii: MasterData instance (or any object) with attributes
+                      for all 13 PII fields (Fullname, FirstName, LastName,
+                      DOB, SSN, DriversLicense, Address1-3, ZipCode, City,
+                      State, Country). V2 uses MasterData; V1 used MasterPII.
 
     Returns:
         LeakDetectionResult with per-field FieldMatchResult for all 13 fields.

@@ -17,6 +17,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.skip(reason="V1 simulated data tests — master_pii.csv replaced by master_data.csv in V2; see test_generate_simulated_data_v2.py")
+
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------

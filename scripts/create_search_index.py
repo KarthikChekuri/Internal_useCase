@@ -1,5 +1,5 @@
 """
-scripts/create_search_index.py — Azure AI Search index setup script.
+scripts/create_search_index.py — Azure AI Search index setup script (V2).
 
 Creates the 'breach-file-index' in Azure AI Search with:
 - Custom phonetic_analyzer: standard tokenizer, lowercase, asciifolding,
@@ -7,10 +7,14 @@ Creates the 'breach-file-index' in Azure AI Search with:
 - Custom name_analyzer: standard tokenizer, lowercase, asciifolding
 - Three content fields: content (standard.lucene), content_phonetic
   (phonetic_analyzer), content_lowercase (name_analyzer)
-- Metadata fields: id (key), file_guid, file_name, file_path,
-  file_extension, case_name
+- V2 metadata fields: id (key, MD5 hash), md5, file_path
 - Scoring profile 'pii_boost': content=3.0, content_lowercase=2.0,
   content_phonetic=1.5
+
+V2 changes from V1:
+- id field is now MD5 hash (was GUID)
+- Added md5 field
+- Removed: file_guid, file_name, file_extension, case_name
 
 Usage:
     python scripts/create_search_index.py
@@ -75,24 +79,19 @@ def build_index_definition(index_name: str) -> SearchIndex:
     )
 
     # -----------------------------------------------------------------------
-    # Fields
+    # Fields — V2 schema (id=MD5, md5, file_path, content fields)
     # -----------------------------------------------------------------------
     fields = [
-        # Key field
+        # Key field — MD5 hash (V2: was GUID in V1)
         SimpleField(
             name="id",
             type=SearchFieldDataType.String,
             key=True,
             filterable=True,
         ),
-        # Metadata fields
+        # V2 metadata fields
         SimpleField(
-            name="file_guid",
-            type=SearchFieldDataType.String,
-            filterable=True,
-        ),
-        SimpleField(
-            name="file_name",
+            name="md5",
             type=SearchFieldDataType.String,
             filterable=True,
         ),
@@ -100,16 +99,6 @@ def build_index_definition(index_name: str) -> SearchIndex:
             name="file_path",
             type=SearchFieldDataType.String,
             filterable=False,
-        ),
-        SimpleField(
-            name="file_extension",
-            type=SearchFieldDataType.String,
-            filterable=True,
-        ),
-        SimpleField(
-            name="case_name",
-            type=SearchFieldDataType.String,
-            filterable=True,
         ),
         # Content fields — same text, different analyzers
         SearchableField(

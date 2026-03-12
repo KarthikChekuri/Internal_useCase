@@ -70,19 +70,19 @@ All feature requirements are in `openspec/changes/breach-pii-search/specs/`. Rea
 
 ## Orchestrator
 
-The orchestrator automates agent launch. It reads the roadmap, resolves dependencies, reads specs, and generates complete agent prompts.
+The orchestrator automates agent launch. It reads the roadmap, resolves dependencies, reads specs, and generates complete agent prompts. **Single entry point: `orchestrator.sh`** (no separate .py file).
 
 ```bash
-python scripts/orchestrator.py status              # Show work board
-python scripts/orchestrator.py plan                # Output JSON manifest with agent prompts
-python scripts/orchestrator.py complete "Phase X.Y" # Mark done, unblock dependents
+bash orchestrator.sh status                    # Show work board
+bash orchestrator.sh plan                      # Output JSON manifest with agent prompts
+bash orchestrator.sh complete "Phase V2-X.Y"   # Mark done, unblock dependents
 ```
 
 ### Launch workflow (when user says "orchestrate" or "launch")
-1. Run `python scripts/orchestrator.py plan`
+1. Run `bash orchestrator.sh plan`
 2. Parse the JSON output
 3. For each phase in `launchable_phases`, launch an Agent (background, isolated worktree) with the provided `prompt`
-4. After each agent completes, run `python scripts/orchestrator.py complete "<phase_id>"`
+4. After each agent completes, run `bash orchestrator.sh complete "<phase_id>"`
 5. Re-run `plan` to check for newly unblocked phases
 6. Repeat until no more launchable phases
 

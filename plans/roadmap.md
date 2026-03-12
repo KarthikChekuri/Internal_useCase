@@ -26,7 +26,7 @@
 All four phases have zero dependencies on each other. Maximum parallelization.
 
 ### Phase V2-1.1: V2 Database Models (ORM Rewrite)
-- **Status:** Not Started
+- **Status:** :white_check_mark: Complete
 - **Depends On:** None
 - **Tasks:**
   - [ ] Create `app/models/master_data.py` -- ORM for `[PII].[master_data]` with `customer_id` (INT PK, not Identity), 13 PII fields. Same field names/types as V1 MasterPII but with customer_id instead of auto-increment ID, schema `PII`, table `master_data`
@@ -44,7 +44,7 @@ All four phases have zero dependencies on each other. Maximum parallelization.
 ---
 
 ### Phase V2-1.2: Config and Strategy Loader
-- **Status:** Not Started
+- **Status:** :white_check_mark: Complete
 - **Depends On:** None
 - **Tasks:**
   - [ ] Update `app/config.py` -- Remove `FILE_BASE_PATH` and `CASE_NAME` settings. Add `STRATEGIES_FILE: str = "strategies.yaml"` setting. Keep DATABASE_URL, AZURE_SEARCH_* settings unchanged
@@ -64,7 +64,7 @@ All four phases have zero dependencies on each other. Maximum parallelization.
 ---
 
 ### Phase V2-1.3: Lucene Query Builder (Strategy-Driven)
-- **Status:** Not Started
+- **Status:** :white_check_mark: Complete
 - **Depends On:** None
 - **Tasks:**
   - [ ] Create `app/services/query_builder.py` with `build_strategy_query(strategy: Strategy, customer_pii: dict) -> str` that builds a full Lucene query from strategy fields + customer PII values
@@ -91,7 +91,7 @@ All four phases have zero dependencies on each other. Maximum parallelization.
 ---
 
 ### Phase V2-1.4: V2 Simulated Data and Seed Script
-- **Status:** Not Started
+- **Status:** :white_check_mark: Complete
 - **Depends On:** None
 - **Tasks:**
   - [ ] Rewrite `scripts/generate_simulated_data.py`:
@@ -118,7 +118,7 @@ All four phases have zero dependencies on each other. Maximum parallelization.
 Depends on V2 Batch 1 (models must exist). Three independent phases.
 
 ### Phase V2-2.1: Indexing Service Rewrite
-- **Status:** Blocked
+- **Status:** :white_check_mark: Complete
 - **Depends On:** V2-1.1 (DLU model with MD5 PK, FileStatus model)
 - **Tasks:**
   - [ ] Rewrite `app/services/indexing_service.py`:
@@ -148,7 +148,7 @@ Depends on V2 Batch 1 (models must exist). Three independent phases.
 ---
 
 ### Phase V2-2.2: Search Service (Strategy-Driven)
-- **Status:** Blocked
+- **Status:** :white_check_mark: Complete
 - **Depends On:** V2-1.1 (DLU model, MasterData model), V2-1.2 (strategy_loader), V2-1.3 (query_builder)
 - **Tasks:**
   - [ ] Create `app/services/search_service.py` (rewrite from V1) with:
@@ -168,7 +168,7 @@ Depends on V2 Batch 1 (models must exist). Three independent phases.
 ---
 
 ### Phase V2-2.3: V2 Pydantic Schemas (Batch Request/Response)
-- **Status:** Blocked
+- **Status:** :white_check_mark: Complete
 - **Depends On:** V2-1.1 (model schemas inform response shapes)
 - **Tasks:**
   - [ ] Create `app/schemas/batch.py` with:
@@ -194,7 +194,7 @@ Depends on V2 Batch 1 (models must exist). Three independent phases.
 Depends on V2 Batch 2. Three independent phases.
 
 ### Phase V2-3.1: Batch Orchestration Service
-- **Status:** Blocked
+- **Status:** :white_check_mark: Complete
 - **Depends On:** V2-2.2 (search_service), V2-1.1 (batch models), V2-1.2 (strategy_loader)
 - **Tasks:**
   - [ ] Create `app/services/batch_service.py` with:
@@ -219,7 +219,7 @@ Depends on V2 Batch 2. Three independent phases.
 ---
 
 ### Phase V2-3.2: Leak Detection V2 Adaptation
-- **Status:** Blocked
+- **Status:** :white_check_mark: Complete
 - **Depends On:** V2-1.1 (MasterData model)
 - **Tasks:**
   - [ ] Update `app/services/leak_detection_service.py`:
@@ -240,7 +240,7 @@ Depends on V2 Batch 2. Three independent phases.
 ---
 
 ### Phase V2-3.3: Batch Router and Status APIs
-- **Status:** Blocked
+- **Status:** :white_check_mark: Complete
 - **Depends On:** V2-2.3 (batch schemas), V2-3.1 (batch_service)
 - **Tasks:**
   - [ ] Create `app/routers/batch.py` with:
@@ -273,7 +273,7 @@ Depends on V2 Batch 2. Three independent phases.
 Depends on V2 Batch 3. Two independent phases.
 
 ### Phase V2-4.1: Console Logging and Observability
-- **Status:** Blocked
+- **Status:** :white_check_mark: Complete
 - **Depends On:** V2-3.1 (batch_service)
 - **Tasks:**
   - [ ] Add structured console logging to `app/services/batch_service.py`:
@@ -292,7 +292,7 @@ Depends on V2 Batch 3. Two independent phases.
 ---
 
 ### Phase V2-4.2: V2 Integration Tests
-- **Status:** Blocked
+- **Status:** :white_check_mark: Complete
 - **Depends On:** V2-3.1 (batch_service), V2-3.3 (batch router), V2-2.1 (indexing), V2-1.4 (simulated data)
 - **Tasks:**
   - [ ] Create `tests/test_v2_integration.py` with end-to-end tests using simulated data:
@@ -322,7 +322,7 @@ Depends on V2 Batch 3. Two independent phases.
 Depends on V2 Batch 4.
 
 ### Phase V2-5.1: V1 Code Cleanup and Final Verification
-- **Status:** Blocked
+- **Status:** :white_check_mark: Complete
 - **Depends On:** V2-4.1, V2-4.2
 - **Tasks:**
   - [ ] Remove all dead V1 code:

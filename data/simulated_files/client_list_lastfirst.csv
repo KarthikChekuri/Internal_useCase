@@ -1,11 +1,11 @@
 ClientID,Name_LastFirst,SSN,DOB_US,City,State
-C001,"O'Brien, Robert",523-45-7891,03/22/1975,Boston,MA
-C002,"Smith-Jones, Jennifer",412-67-3309,11/04/1988,Austin,TX
-C003,"Chekuri, Karthik",634-21-8805,07/15/1992,Los Angeles,CA
-C004,"Rodriguez, Maria",291-88-4451,06/30/1980,Miami,FL
-C005,"Hassan, Ahmed",785-33-6624,01/19/1970,Brooklyn,NY
-C006,"Patel, Priya",348-56-7712,09/08/1995,Chicago,IL
-C007,"Kim, James",901-24-5567,04/27/1983,Seattle,WA
-C008,"Thornberry, Linda",677-09-3381,12/11/1967,Cleveland,OH
-C009,"Reyes-Morales, Carlos",556-77-2290,02/14/1990,Phoenix,AZ
-C010,"Whitfield, Susan",143-62-9908,08/05/1978,Atlanta,GA
+1,"O'Brien, Robert",523-45-7891,03/22/1975,Boston,MA
+2,"Smith-Jones, Jennifer",412-67-3309,11/04/1988,Austin,TX
+3,"Chekuri, Karthik",634-21-8805,07/15/1992,Los Angeles,CA
+4,"Rodriguez, Maria",291-88-4451,06/30/1980,Miami,FL
+5,"Hassan, Ahmed",785-33-6624,01/19/1970,Brooklyn,NY
+6,"Patel, Priya",348-56-7712,09/08/1995,Chicago,IL
+7,"Kim, James",901-24-5567,04/27/1983,Seattle,WA
+8,"Thornberry, Linda",677-09-3381,12/11/1967,Cleveland,OH
+9,"Reyes-Morales, Carlos",556-77-2290,02/14/1990,Phoenix,AZ
+10,"Whitfield, Susan",143-62-9908,08/05/1978,Atlanta,GA

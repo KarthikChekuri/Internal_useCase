@@ -1,12 +1,14 @@
 """Tests for app/main.py — FastAPI app instance, router registration, CORS, lifespan.
 
+Updated for V2: batch router replaces V1 search router.
+
 Tests cover:
 - FastAPI app creates successfully
-- Search router is registered (POST /search is accessible)
-- Indexing router is registered (POST /index/all and POST /index/{guid} are accessible)
+- Batch router is registered (POST /batch/run, GET /batch/{batch_id}/status, etc.)
+- Indexing router is registered (POST /index/all and POST /index/{md5} are accessible)
+- V1 POST /search is NOT registered (removed in V2)
 - CORS middleware is configured (allow all origins for dev)
-- Routes are visible (would show in /docs)
-- Lifespan handler runs startup/shutdown without error
+- Routes are visible in /docs
 """
 
 from unittest.mock import MagicMock, patch
@@ -30,6 +32,7 @@ def test_client(app):
     mock_db = MagicMock()
     mock_search_client = MagicMock()
     mock_settings = MagicMock()
+    mock_settings.STRATEGIES_FILE = "strategies.yaml"
 
     def override_db():
         yield mock_db
@@ -58,12 +61,17 @@ class TestAppCreation:
 
 
 class TestRouterRegistration:
-    """Tests that all routers are properly registered."""
+    """Tests that all routers are properly registered (V2)."""
 
-    def test_search_route_registered(self, app):
-        """POST /search should be a registered route."""
+    def test_batch_run_route_registered(self, app):
+        """POST /batch/run should be a registered route (V2)."""
         routes = [route.path for route in app.routes]
-        assert "/search" in routes
+        assert "/batch/run" in routes
+
+    def test_batch_status_route_registered(self, app):
+        """GET /batch/{batch_id}/status should be registered (V2)."""
+        routes = [route.path for route in app.routes]
+        assert "/batch/{batch_id}/status" in routes
 
     def test_index_all_route_registered(self, app):
         """POST /index/all should be a registered route."""
@@ -71,16 +79,14 @@ class TestRouterRegistration:
         assert "/index/all" in routes
 
     def test_index_single_route_registered(self, app):
-        """POST /index/{guid} should be a registered route."""
+        """POST /index/{md5} should be a registered route (V2 uses md5 not guid)."""
         routes = [route.path for route in app.routes]
-        assert "/index/{guid}" in routes
+        assert "/index/{md5}" in routes
 
-    def test_search_route_accepts_post(self, test_client):
-        """POST /search should accept POST method (not 405)."""
-        # We're not checking for success, just that the route exists and accepts POST
-        # It will fail validation (422) because we didn't send a body, which proves the route exists
-        response = test_client.post("/search", json={})
-        assert response.status_code != 405  # 405 = Method Not Allowed
+    def test_v1_search_route_removed(self, app):
+        """POST /search should NOT be registered — V1 endpoint removed."""
+        routes = [route.path for route in app.routes]
+        assert "/search" not in routes
 
     def test_index_all_accepts_post(self, test_client):
         """POST /index/all should accept POST method."""
@@ -89,7 +95,7 @@ class TestRouterRegistration:
         mock_result = IndexResponse(
             files_processed=0, files_succeeded=0, files_failed=0, errors=[]
         )
-        with patch("app.routers.indexing.index_all_files", return_value=mock_result):
+        with patch("app.routers.indexing.index_all_files_v2", return_value=mock_result):
             response = test_client.post("/index/all")
             assert response.status_code != 405
 
@@ -100,10 +106,10 @@ class TestCORSMiddleware:
     def test_cors_allows_any_origin(self, test_client):
         """CORS should allow requests from any origin (dev mode)."""
         response = test_client.options(
-            "/search",
+            "/batches",
             headers={
                 "Origin": "http://localhost:3000",
-                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Method": "GET",
             },
         )
         # CORS preflight should be allowed
@@ -112,7 +118,7 @@ class TestCORSMiddleware:
     def test_cors_allows_post_method(self, test_client):
         """CORS should allow POST method."""
         response = test_client.options(
-            "/search",
+            "/batch/run",
             headers={
                 "Origin": "http://example.com",
                 "Access-Control-Request-Method": "POST",
@@ -125,11 +131,11 @@ class TestCORSMiddleware:
 class TestOpenAPISchema:
     """Tests that routes are visible in OpenAPI schema (would appear in /docs)."""
 
-    def test_openapi_schema_includes_search(self, app):
-        """The OpenAPI schema should include POST /search."""
+    def test_openapi_schema_includes_batch_run(self, app):
+        """The OpenAPI schema should include POST /batch/run."""
         schema = app.openapi()
-        assert "/search" in schema["paths"]
-        assert "post" in schema["paths"]["/search"]
+        assert "/batch/run" in schema["paths"]
+        assert "post" in schema["paths"]["/batch/run"]
 
     def test_openapi_schema_includes_index_all(self, app):
         """The OpenAPI schema should include POST /index/all."""
@@ -137,8 +143,7 @@ class TestOpenAPISchema:
         assert "/index/all" in schema["paths"]
         assert "post" in schema["paths"]["/index/all"]
 
-    def test_openapi_schema_includes_index_guid(self, app):
-        """The OpenAPI schema should include POST /index/{guid}."""
+    def test_openapi_schema_does_not_include_v1_search(self, app):
+        """The OpenAPI schema should NOT include POST /search (V1 removed)."""
         schema = app.openapi()
-        assert "/index/{guid}" in schema["paths"]
-        assert "post" in schema["paths"]["/index/{guid}"]
+        assert "/search" not in schema["paths"]

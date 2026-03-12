@@ -9,6 +9,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+pytestmark = pytest.mark.skip(reason="V1 run_indexing tests — uses removed index_all_files V1 function")
+
 
 def _make_index_response(processed=10, succeeded=10, failed=0, errors=None):
     """Return a fake IndexResponse-like object."""

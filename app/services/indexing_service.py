@@ -1,27 +1,34 @@
-"""Indexing pipeline service — Phase 3.1.
+"""Indexing pipeline service — Phase V2-2.1.
 
-Queries DLU for eligible breach files, extracts text via the text_extraction
-service, builds Azure AI Search documents, and uploads them in batches.
+V2 rewrite: Queries DLU with MD5 PK, filters by extension from file_path,
+uses file_path directly (no base path), builds docs with id=MD5, supports
+resumability via file_status table, supports force re-index.
 
-Public API:
-    index_all_files(db, search_client, config)  -> IndexResponse
+Public API (V2):
+    index_all_files_v2(db, search_client, config, force=False)  -> IndexResponse
+    index_single_file_v2(db, search_client, config, md5) -> IndexResponse | None
+
+V1 compatibility (kept for existing tests):
+    index_all_files(db, search_client, config) -> IndexResponse
     index_single_file(db, search_client, config, guid) -> IndexResponse | None
 """
 
+import datetime
 import logging
 import os
+from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel
 
 from app.models.dlu import DLU
+from app.models.file_status import FileStatus
 from app.services.text_extraction import extract_text
 
 logger = logging.getLogger(__name__)
 
-# Supported file extensions for indexing
-# Match both with and without leading dot (DB may store either format)
-SUPPORTED_EXTENSIONS = {".txt", ".xls", ".xlsx", ".csv", "txt", "xls", "xlsx", "csv"}
+# Supported file extensions for indexing (checked from file_path at runtime)
+SUPPORTED_EXTENSIONS = {".txt", ".xls", ".xlsx", ".csv"}
 
 # Azure AI Search upload batch size limit
 BATCH_SIZE = 1000
@@ -37,71 +44,131 @@ class IndexResponse(BaseModel):
     files_processed: int
     files_succeeded: int
     files_failed: int
+    files_skipped: int = 0
     errors: list[str]
 
 
 # ---------------------------------------------------------------------------
-# Internal helpers
+# V2 Internal helpers
 # ---------------------------------------------------------------------------
 
-def _query_eligible_files(db: Any, case_name: str) -> list[Any]:
-    """Query DLU for files eligible for indexing.
+def _is_supported_extension(file_path: str) -> bool:
+    """Check if file_path has a supported extension (.txt, .xlsx, .xls, .csv).
 
-    Filters:
-        - fileExtension in SUPPORTED_EXTENSIONS
-        - isExclusion == False (or 0)
-        - caseName == case_name
+    Args:
+        file_path: The file path string from the DLU table.
+
+    Returns:
+        True if extension is supported, False otherwise.
     """
-    records = (
-        db.query(DLU)
-        .filter(
-            DLU.fileExtension.in_(SUPPORTED_EXTENSIONS),
-            DLU.isExclusion == False,  # noqa: E712
-            DLU.caseName == case_name,
-        )
-        .all()
-    )
-    logger.info("Found %d eligible files for case '%s'.", len(records), case_name)
+    ext = Path(file_path).suffix.lower()
+    return ext in SUPPORTED_EXTENSIONS
+
+
+def _query_all_dlu_records(db: Any) -> list[Any]:
+    """Query all records from [DLU].[datalakeuniverse].
+
+    V2: no filtering in DB query — extension filtering is done at runtime
+    from file_path.
+
+    Args:
+        db: SQLAlchemy Session.
+
+    Returns:
+        List of all DLU records (MD5 + file_path).
+    """
+    records = db.query(DLU).all()
+    logger.info("Found %d total DLU records.", len(records))
     return records
 
 
-def _resolve_file_path(base_path: str, textpath: str | None) -> str | None:
-    """Combine the configured base path with the DLU TEXTPATH column.
+def _query_dlu_by_md5(db: Any, md5: str) -> Any:
+    """Query a single DLU record by its MD5 primary key.
 
     Args:
-        base_path: Value of FILE_BASE_PATH from config.
-        textpath: TEXTPATH column value from DLU record, or None.
+        db: SQLAlchemy Session.
+        md5: The MD5 hash to look up.
 
     Returns:
-        Full file system path as a string, or None if textpath is None/empty.
+        DLU record, or None if not found.
     """
-    if not textpath:
-        return None
-    return os.path.join(base_path, textpath.lstrip(os.sep).lstrip("/").lstrip("\\"))
+    return db.query(DLU).filter(DLU.MD5 == md5).first()
 
 
-def _build_document(record: Any, text: str, full_path: str) -> dict[str, str]:
-    """Build a search document dict for Azure AI Search.
+def _get_indexed_md5s(db: Any) -> set[str]:
+    """Return the set of MD5 hashes that are already indexed (status='indexed').
 
     Args:
-        record: DLU record with GUID, fileName, fileExtension, caseName.
-        text: Extracted text content.
-        full_path: Resolved file path on disk.
+        db: SQLAlchemy Session.
 
     Returns:
-        Dictionary with all required index fields.
+        Set of MD5 strings with status='indexed' in [Index].[file_status].
+    """
+    rows = db.query(FileStatus).filter(FileStatus.status == "indexed").all()
+    return {row.md5 for row in rows}
+
+
+def _upsert_file_status(
+    db: Any, md5: str, status: str, error_message: str | None = None
+) -> None:
+    """Insert or update a row in [Index].[file_status].
+
+    Args:
+        db: SQLAlchemy Session.
+        md5: The MD5 hash (PK).
+        status: 'indexed', 'failed', or 'skipped'.
+        error_message: Error description for failed files.
+    """
+    existing = db.query(FileStatus).filter(FileStatus.md5 == md5).first()
+    if existing is not None:
+        existing.status = status
+        existing.indexed_at = datetime.datetime.utcnow()
+        existing.error_message = error_message
+    else:
+        row = FileStatus(
+            md5=md5,
+            status=status,
+            indexed_at=datetime.datetime.utcnow(),
+            error_message=error_message,
+        )
+        db.add(row)
+    db.commit()
+
+
+def _build_document_v2(record: Any, text: str) -> dict[str, str]:
+    """Build a V2 search document dict for Azure AI Search.
+
+    V2: id=MD5, md5, content/content_phonetic/content_lowercase all same text,
+    file_path from DLU record directly.
+
+    Args:
+        record: DLU V2 record with MD5 and file_path.
+        text: Extracted text content.
+
+    Returns:
+        Dictionary with all required V2 index fields.
     """
     return {
-        "id": record.GUID,
-        "file_guid": record.GUID,
+        "id": record.MD5,
+        "md5": record.MD5,
         "content": text,
         "content_phonetic": text,
         "content_lowercase": text,
-        "file_name": record.fileName,
-        "file_path": full_path,
-        "file_extension": record.fileExtension,
-        "case_name": record.caseName,
+        "file_path": record.file_path,
     }
+
+
+def _log_indexing_progress(processed: int, total: int, failed: int) -> None:
+    """Log indexing progress in the spec-required format.
+
+    Emits: "Indexing: {processed}/{total} files processed ({failed} failed)"
+
+    Args:
+        processed: Number of files processed so far (attempted).
+        total: Total files to process.
+        failed: Number of files that failed extraction or upload.
+    """
+    logger.info("Indexing: %d/%d files processed (%d failed)", processed, total, failed)
 
 
 def _upload_documents(search_client: Any, documents: list[dict]) -> list[str]:
@@ -135,123 +202,197 @@ def _upload_documents(search_client: Any, documents: list[dict]) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# Public API
+# V2 Public API
 # ---------------------------------------------------------------------------
 
-def index_all_files(db: Any, search_client: Any, config: Any) -> IndexResponse:
-    """Index all eligible files from DLU into Azure AI Search.
+def index_all_files_v2(
+    db: Any, search_client: Any, config: Any, force: bool = False
+) -> IndexResponse:
+    """Index all eligible files from DLU into Azure AI Search (V2).
 
-    Queries DLU for eligible files (supported extension, not excluded, matching
-    case name), extracts text, builds search documents, and uploads in batches.
+    V2 behavior:
+    - Queries all DLU records (MD5 + file_path only)
+    - Filters by extension from file_path at runtime
+    - Skips already-indexed files (unless force=True)
+    - Uses file_path directly (no base path join)
+    - Document id = MD5 hash
+    - Updates [Index].[file_status] for each file
 
     Args:
         db: SQLAlchemy Session.
         search_client: Azure SearchClient instance.
-        config: Settings object with FILE_BASE_PATH, CASE_NAME, etc.
+        config: Settings object.
+        force: If True, re-index all files regardless of previous status.
 
     Returns:
-        IndexResponse with counts and any error messages.
+        IndexResponse with counts (including files_skipped) and error messages.
     """
-    records = _query_eligible_files(db, config.CASE_NAME)
+    all_records = _query_all_dlu_records(db)
 
-    if not records:
-        logger.info("No eligible files found. Nothing to index.")
+    if not all_records:
+        logger.info("No DLU records found. Nothing to index.")
         return IndexResponse(
-            files_processed=0, files_succeeded=0, files_failed=0, errors=[]
+            files_processed=0,
+            files_succeeded=0,
+            files_failed=0,
+            files_skipped=0,
+            errors=[],
         )
 
-    documents: list[dict] = []
+    # Get already-indexed MD5s for resumability (empty set when force=True)
+    indexed_md5s: set[str] = set() if force else _get_indexed_md5s(db)
+
+    files_processed = 0
+    files_succeeded = 0
+    files_failed = 0
+    files_skipped = 0
     extraction_errors: list[str] = []
-    extraction_failed_count = 0
+    documents: list[dict] = []
 
-    for record in records:
-        full_path = _resolve_file_path(config.FILE_BASE_PATH, record.TEXTPATH)
-        if full_path is None:
-            extraction_failed_count += 1
-            error_msg = f"{record.GUID}: TEXTPATH is null"
-            extraction_errors.append(error_msg)
-            logger.warning(error_msg)
+    for record in all_records:
+        md5 = record.MD5
+        file_path = record.file_path
+
+        # Skip unsupported extensions (counted as skipped, not failed)
+        if not _is_supported_extension(file_path or ""):
+            ext = Path(file_path or "").suffix.lower() if file_path else "(none)"
+            logger.warning("Skipping unsupported extension '%s' for MD5 %s", ext, md5)
+            files_skipped += 1
             continue
-        logger.info("Processing file %s: %s", record.GUID, full_path)
 
-        text = extract_text(full_path)
+        # Skip already-indexed files (resumability)
+        if md5 in indexed_md5s:
+            logger.debug("Skipping already-indexed MD5 %s", md5)
+            files_skipped += 1
+            continue
+
+        # Process file
+        files_processed += 1
+        logger.info("Processing file MD5=%s: %s", md5, file_path)
+
+        text = extract_text(file_path)
 
         if text is None:
-            extraction_failed_count += 1
-            error_msg = f"{record.GUID}: extraction failed for {full_path}"
+            files_failed += 1
+            error_msg = f"{md5}: extraction failed for {file_path}"
             extraction_errors.append(error_msg)
             logger.warning(error_msg)
+            _upsert_file_status(db, md5, status="failed", error_message=error_msg)
             continue
 
-        doc = _build_document(record, text, full_path)
+        doc = _build_document_v2(record, text)
         documents.append(doc)
+
+    # Log indexing progress summary after extraction loop
+    _log_indexing_progress(processed=files_processed, total=files_processed + files_skipped, failed=files_failed)
 
     # Upload all successfully extracted documents
     upload_errors: list[str] = []
     if documents:
         upload_errors = _upload_documents(search_client, documents)
 
+    # Track upload results in file_status and count successes/failures
+    upload_failed_keys = set()
+    for err in upload_errors:
+        # Error format is "md5_key: error message"
+        key = err.split(":")[0].strip()
+        upload_failed_keys.add(key)
+
+    for doc in documents:
+        doc_md5 = doc["md5"]
+        if doc_md5 in upload_failed_keys:
+            _upsert_file_status(
+                db, doc_md5, status="failed",
+                error_message=next((e for e in upload_errors if e.startswith(doc_md5)), None)
+            )
+        else:
+            files_succeeded += 1
+            _upsert_file_status(db, doc_md5, status="indexed")
+
     all_errors = extraction_errors + upload_errors
-    total_failed = extraction_failed_count + len(upload_errors)
-    total_succeeded = len(records) - total_failed
+    total_failed = files_failed + len(upload_errors)
 
     return IndexResponse(
-        files_processed=len(records),
-        files_succeeded=total_succeeded,
+        files_processed=files_processed,
+        files_succeeded=files_succeeded,
         files_failed=total_failed,
+        files_skipped=files_skipped,
         errors=all_errors,
     )
 
 
-def index_single_file(
-    db: Any, search_client: Any, config: Any, guid: str
-) -> IndexResponse | None:
-    """Index a single file by its GUID.
-
-    Looks up the GUID in DLU, extracts text, builds a document, and uploads it.
+def index_single_file_v2(
+    db: Any, search_client: Any, config: Any, md5: str
+) -> "IndexResponse | None":
+    """Index a single file by its MD5 hash (V2).
 
     Args:
         db: SQLAlchemy Session.
         search_client: Azure SearchClient instance.
-        config: Settings object with FILE_BASE_PATH, CASE_NAME, etc.
-        guid: The file GUID to index.
+        config: Settings object.
+        md5: The MD5 hash to index.
 
     Returns:
-        IndexResponse on success/failure, or None if the GUID is not found
-        in DLU (caller should raise 404).
+        IndexResponse on success/failure, or None if MD5 not found in DLU
+        (caller should raise 404).
     """
-    record = db.query(DLU).filter(DLU.GUID == guid).first()
+    record = _query_dlu_by_md5(db, md5)
 
     if record is None:
-        logger.warning("GUID '%s' not found in DLU.", guid)
+        logger.warning("MD5 '%s' not found in DLU.", md5)
         return None
 
-    full_path = _resolve_file_path(config.FILE_BASE_PATH, record.TEXTPATH)
-    if full_path is None:
-        error_msg = f"{guid}: TEXTPATH is null"
-        logger.warning(error_msg)
-        return IndexResponse(
-            files_processed=1, files_succeeded=0, files_failed=1, errors=[error_msg]
-        )
-    logger.info("Processing single file %s: %s", guid, full_path)
+    file_path = record.file_path
 
-    text = extract_text(full_path)
+    # Check extension
+    if not _is_supported_extension(file_path or ""):
+        ext = Path(file_path or "").suffix.lower() if file_path else "(none)"
+        logger.warning("Unsupported extension '%s' for MD5 %s", ext, md5)
+        return IndexResponse(
+            files_processed=0,
+            files_succeeded=0,
+            files_failed=0,
+            files_skipped=1,
+            errors=[],
+        )
+
+    logger.info("Processing single file MD5=%s: %s", md5, file_path)
+
+    text = extract_text(file_path)
 
     if text is None:
-        error_msg = f"{guid}: extraction failed for {full_path}"
+        error_msg = f"{md5}: extraction failed for {file_path}"
         logger.warning(error_msg)
+        _upsert_file_status(db, md5, status="failed", error_message=error_msg)
         return IndexResponse(
-            files_processed=1, files_succeeded=0, files_failed=1, errors=[error_msg]
+            files_processed=1,
+            files_succeeded=0,
+            files_failed=1,
+            files_skipped=0,
+            errors=[error_msg],
         )
 
-    doc = _build_document(record, text, full_path)
+    doc = _build_document_v2(record, text)
     upload_errors = _upload_documents(search_client, [doc])
 
     if upload_errors:
+        _upsert_file_status(
+            db, md5, status="failed",
+            error_message="; ".join(upload_errors)
+        )
         return IndexResponse(
-            files_processed=1, files_succeeded=0, files_failed=1, errors=upload_errors
+            files_processed=1,
+            files_succeeded=0,
+            files_failed=1,
+            files_skipped=0,
+            errors=upload_errors,
         )
 
+    _upsert_file_status(db, md5, status="indexed")
     return IndexResponse(
-        files_processed=1, files_succeeded=1, files_failed=0, errors=[]
+        files_processed=1,
+        files_succeeded=1,
+        files_failed=0,
+        files_skipped=0,
+        errors=[],
     )

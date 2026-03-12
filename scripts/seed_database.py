@@ -1,12 +1,19 @@
 """
-Phase 1.3 — Seed Database Script
-==================================
-Reads data/seed/master_pii.csv and data/seed/dlu_metadata.csv and inserts
+Phase V2-1.4 — Seed Database Script (V2 rewrite)
+==================================================
+Reads data/seed/master_data.csv and data/seed/dlu_metadata.csv and inserts
 records into a local SQL Server instance.
 
+V2 changes from V1:
+  - Reads master_data.csv (not master_pii.csv)
+  - Table is [PII].[master_data] (not [PII].[master_pii])
+  - customer_id (INT) is the primary key for master_data
+  - [DLU].[datalakeuniverse] uses MD5 as primary key (not GUID)
+  - dlu_metadata.csv has only MD5 and file_path columns
+
   Tables created if they do not exist:
-    [PII].[master_pii]            — 10 customer PII records
-    [DLU].[datalakeuniverse]      — breach-file metadata rows
+    [PII].[master_data]           — 10 customer PII records (customer_id INT PK)
+    [DLU].[datalakeuniverse]      — breach-file metadata (MD5 PK + file_path)
 
   Idempotent: existing rows (matched by primary key) are skipped.
 
@@ -23,8 +30,11 @@ Environment variables (optional):
 from __future__ import annotations
 
 import csv
+import logging
 import os
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -32,7 +42,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SEED_DIR = PROJECT_ROOT / "data" / "seed"
-MASTER_PII_CSV = SEED_DIR / "master_pii.csv"
+MASTER_DATA_CSV = SEED_DIR / "master_data.csv"
 DLU_METADATA_CSV = SEED_DIR / "dlu_metadata.csv"
 
 # ---------------------------------------------------------------------------
@@ -40,19 +50,22 @@ DLU_METADATA_CSV = SEED_DIR / "dlu_metadata.csv"
 # ---------------------------------------------------------------------------
 
 def _build_connection_string() -> str:
-    server = os.getenv("DB_SERVER", "localhost")
+    server = os.getenv("DB_SERVER", "localhost,1433")
     database = os.getenv("DB_NAME", "BreachSearch")
     user = os.getenv("DB_USER", "")
     password = os.getenv("DB_PASSWORD", "")
-
     driver = os.getenv("DB_DRIVER", "SQL Server")
 
     if user and password:
-        return (
+        conn_str = (
             f"DRIVER={{{driver}}};"
             f"SERVER={server};DATABASE={database};"
             f"UID={user};PWD={password}"
         )
+        # ODBC Driver 17+ supports TrustServerCertificate; old "SQL Server" driver does not
+        if "ODBC Driver" in driver:
+            conn_str += ";TrustServerCertificate=yes"
+        return conn_str
     # Windows integrated authentication
     return (
         f"DRIVER={{{driver}}};"
@@ -62,8 +75,8 @@ def _build_connection_string() -> str:
 
 
 def get_connection():
-    """Return a live pyodbc connection."""
-    import pyodbc  # imported lazily so the module is importable without pyodbc installed
+    """Return a live pyodbc connection (imported lazily)."""
+    import pyodbc  # noqa: PLC0415 — lazy import avoids hang when not needed
     return pyodbc.connect(_build_connection_string())
 
 
@@ -76,15 +89,15 @@ DDL_STATEMENTS = [
     "IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = 'PII') EXEC('CREATE SCHEMA [PII]')",
     "IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = 'DLU') EXEC('CREATE SCHEMA [DLU]')",
 
-    # PII.master_pii
+    # PII.master_data (V2: customer_id INT PK, 13 PII fields)
     """
     IF NOT EXISTS (
         SELECT 1 FROM sys.tables t
         JOIN sys.schemas s ON t.schema_id = s.schema_id
-        WHERE s.name = 'PII' AND t.name = 'master_pii'
+        WHERE s.name = 'PII' AND t.name = 'master_data'
     )
-    CREATE TABLE [PII].[master_pii] (
-        ID              NVARCHAR(10)   NOT NULL PRIMARY KEY,
+    CREATE TABLE [PII].[master_data] (
+        customer_id     INT            NOT NULL PRIMARY KEY,
         Fullname        NVARCHAR(100)  NULL,
         FirstName       NVARCHAR(50)   NULL,
         LastName        NVARCHAR(50)   NULL,
@@ -101,7 +114,7 @@ DDL_STATEMENTS = [
     )
     """,
 
-    # DLU.datalakeuniverse
+    # DLU.datalakeuniverse (V2: MD5 PK, only file_path)
     """
     IF NOT EXISTS (
         SELECT 1 FROM sys.tables t
@@ -109,22 +122,19 @@ DDL_STATEMENTS = [
         WHERE s.name = 'DLU' AND t.name = 'datalakeuniverse'
     )
     CREATE TABLE [DLU].[datalakeuniverse] (
-        GUID            NVARCHAR(36)   NOT NULL PRIMARY KEY,
-        MD5             NVARCHAR(32)   NULL,
-        caseName        NVARCHAR(100)  NULL,
-        fileName        NVARCHAR(255)  NULL,
-        fileExtension   NVARCHAR(10)   NULL,
-        TEXTPATH        NVARCHAR(500)  NULL,
-        isExclusion     TINYINT        NULL DEFAULT 0
+        MD5             NVARCHAR(32)   NOT NULL PRIMARY KEY,
+        file_path       NVARCHAR(500)  NULL
     )
     """,
 ]
 
 
 def create_schemas_and_tables(cursor) -> None:
+    """Execute all DDL statements to create schemas and tables if needed."""
     for stmt in DDL_STATEMENTS:
         cursor.execute(stmt)
     cursor.connection.commit()
+    logger.info("Schemas and tables verified/created.")
     print("  Schemas and tables verified/created.")
 
 
@@ -132,21 +142,26 @@ def create_schemas_and_tables(cursor) -> None:
 # Seed helpers
 # ---------------------------------------------------------------------------
 
-def seed_master_pii(cursor) -> int:
-    """Insert rows from master_pii.csv; skip duplicates by primary key."""
+def seed_master_data(cursor) -> int:
+    """
+    Insert rows from master_data.csv into [PII].[master_data].
+    Skips rows whose customer_id already exists (idempotent).
+    Returns the count of rows inserted.
+    """
     sql = """
-    IF NOT EXISTS (SELECT 1 FROM [PII].[master_pii] WHERE ID = ?)
-    INSERT INTO [PII].[master_pii]
-        (ID, Fullname, FirstName, LastName, DOB, SSN, DriversLicense,
+    IF NOT EXISTS (SELECT 1 FROM [PII].[master_data] WHERE customer_id = ?)
+    INSERT INTO [PII].[master_data]
+        (customer_id, Fullname, FirstName, LastName, DOB, SSN, DriversLicense,
          Address1, Address2, Address3, ZipCode, City, State, Country)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
     inserted = 0
-    with open(MASTER_PII_CSV, newline="", encoding="utf-8") as f:
+    with open(MASTER_DATA_CSV, newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
             cursor.execute(sql, (
-                row["ID"],          # for the EXISTS check
-                row["ID"], row["Fullname"], row["FirstName"], row["LastName"],
+                int(row["customer_id"]),      # for the EXISTS check
+                int(row["customer_id"]),      # INSERT value
+                row["Fullname"], row["FirstName"], row["LastName"],
                 row["DOB"], row["SSN"], row["DriversLicense"],
                 row["Address1"], row["Address2"], row["Address3"],
                 row["ZipCode"], row["City"], row["State"], row["Country"],
@@ -157,21 +172,25 @@ def seed_master_pii(cursor) -> int:
 
 
 def seed_dlu_metadata(cursor) -> int:
-    """Insert rows from dlu_metadata.csv; skip duplicates by GUID."""
+    """
+    Insert rows from dlu_metadata.csv into [DLU].[datalakeuniverse].
+    V2: uses MD5 as the primary key (not GUID).
+    Skips rows whose MD5 already exists (idempotent).
+    Returns the count of rows inserted.
+    """
     sql = """
-    IF NOT EXISTS (SELECT 1 FROM [DLU].[datalakeuniverse] WHERE GUID = ?)
+    IF NOT EXISTS (SELECT 1 FROM [DLU].[datalakeuniverse] WHERE MD5 = ?)
     INSERT INTO [DLU].[datalakeuniverse]
-        (GUID, MD5, caseName, fileName, fileExtension, TEXTPATH, isExclusion)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+        (MD5, file_path)
+    VALUES (?, ?)
     """
     inserted = 0
     with open(DLU_METADATA_CSV, newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
             cursor.execute(sql, (
-                row["GUID"],        # for the EXISTS check
-                row["GUID"], row["MD5"], row["caseName"],
-                row["fileName"], row["fileExtension"], row["TEXTPATH"],
-                int(row["isExclusion"]),
+                row["MD5"],          # for the EXISTS check
+                row["MD5"],          # INSERT value
+                row["file_path"],
             ))
             inserted += cursor.rowcount
     cursor.connection.commit()
@@ -183,18 +202,18 @@ def seed_dlu_metadata(cursor) -> int:
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    print("Connecting to SQL Server…")
+    print("Connecting to SQL Server...")
     conn = get_connection()
     cursor = conn.cursor()
 
-    print("Creating schemas and tables if needed…")
+    print("Creating schemas and tables if needed...")
     create_schemas_and_tables(cursor)
 
-    print("Seeding [PII].[master_pii]…")
-    n_pii = seed_master_pii(cursor)
-    print(f"  {n_pii} rows inserted into [PII].[master_pii]")
+    print("Seeding [PII].[master_data]...")
+    n_master = seed_master_data(cursor)
+    print(f"  {n_master} rows inserted into [PII].[master_data]")
 
-    print("Seeding [DLU].[datalakeuniverse]…")
+    print("Seeding [DLU].[datalakeuniverse]...")
     n_dlu = seed_dlu_metadata(cursor)
     print(f"  {n_dlu} rows inserted into [DLU].[datalakeuniverse]")
 

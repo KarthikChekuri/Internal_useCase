@@ -1,7 +1,7 @@
-"""FastAPI application entry point.
+"""FastAPI application entry point — V2.
 
 Creates the FastAPI app instance with:
-- Router registration (search, indexing)
+- Router registration (batch, indexing) — V1 search router removed
 - CORS middleware (allow all origins for dev)
 - Lifespan handler for startup/shutdown logging
 """
@@ -12,8 +12,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.routers.batch import router as batch_router
 from app.routers.indexing import router as indexing_router
-from app.routers.search import router as search_router
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ async def lifespan(app: FastAPI):
     Logs startup and shutdown messages. Can be extended later
     to initialize database connections, warm caches, etc.
     """
-    logger.info("Breach PII Search API starting up.")
+    logger.info("Breach PII Search API starting up (V2).")
     yield
     logger.info("Breach PII Search API shutting down.")
 
@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Breach PII Search API",
     description="Search breach files for customer PII using Azure AI Search and fuzzy matching.",
-    version="0.1.0",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
@@ -46,6 +46,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register routers
-app.include_router(search_router)
+# Register routers — V2: batch replaces V1 search endpoint
+app.include_router(batch_router)
 app.include_router(indexing_router)

@@ -1,11 +1,17 @@
 """
-Phase 1.3 — Simulated Data Generation
-======================================
+Phase V2-1.4 — Simulated Data Generation (V2 rewrite)
+======================================================
 Generates:
-  - data/seed/master_pii.csv          10 diverse customer records
-  - data/seed/dlu_metadata.csv        one row per simulated breach file
+  - data/seed/master_data.csv          10 diverse customer records (customer_id PK)
+  - data/seed/dlu_metadata.csv        one row per simulated file (MD5 + file_path only)
   - data/simulated_files/             ~25 breach files (txt, xlsx, csv, xls)
   - data/TEXT/{md5[:3]}/{md5}.ext     indexed copy of every breach file
+
+V2 changes from V1:
+  - master_data.csv replaces master_pii.csv
+  - customer_id (INT 1-10) replaces ID string (C001-C010) as primary key
+  - dlu_metadata.csv has only MD5 and file_path (no GUID, caseName, etc.)
+  - file_path uses forward-slash: data/TEXT/{md5[:3]}/{md5}.ext
 
 Run from the project root:
     python scripts/generate_simulated_data.py
@@ -18,14 +24,16 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
+import logging
 import os
 import shutil
 import struct
-import uuid
 from pathlib import Path
 from typing import Any
 
 import openpyxl
+
+logger = logging.getLogger(__name__)
 
 try:
     import xlwt
@@ -42,17 +50,18 @@ DATA_DIR = PROJECT_ROOT / "data"
 SEED_DIR = DATA_DIR / "seed"
 SIM_FILES_DIR = DATA_DIR / "simulated_files"
 TEXT_DIR = DATA_DIR / "TEXT"
-MASTER_PII_CSV = SEED_DIR / "master_pii.csv"
+MASTER_DATA_CSV = SEED_DIR / "master_data.csv"
 DLU_METADATA_CSV = SEED_DIR / "dlu_metadata.csv"
 
 # ---------------------------------------------------------------------------
 # Customer master data
+# V2: customer_id is INT (1..10), all other fields identical to V1
 # ---------------------------------------------------------------------------
 
 # fmt: off
-CUSTOMERS: list[dict[str, str]] = [
+CUSTOMERS: list[dict[str, Any]] = [
     {
-        "ID": "C001",
+        "customer_id": 1,
         "Fullname": "Robert O'Brien",
         "FirstName": "Robert",
         "LastName": "O'Brien",
@@ -68,7 +77,7 @@ CUSTOMERS: list[dict[str, str]] = [
         "Country": "USA",
     },
     {
-        "ID": "C002",
+        "customer_id": 2,
         "Fullname": "Jennifer Smith-Jones",
         "FirstName": "Jennifer",
         "LastName": "Smith-Jones",
@@ -84,7 +93,7 @@ CUSTOMERS: list[dict[str, str]] = [
         "Country": "USA",
     },
     {
-        "ID": "C003",
+        "customer_id": 3,
         "Fullname": "Karthik Chekuri",
         "FirstName": "Karthik",
         "LastName": "Chekuri",
@@ -100,7 +109,7 @@ CUSTOMERS: list[dict[str, str]] = [
         "Country": "USA",
     },
     {
-        "ID": "C004",
+        "customer_id": 4,
         "Fullname": "Maria Rodriguez",
         "FirstName": "Maria",
         "LastName": "Rodriguez",
@@ -116,7 +125,7 @@ CUSTOMERS: list[dict[str, str]] = [
         "Country": "",
     },
     {
-        "ID": "C005",
+        "customer_id": 5,
         "Fullname": "Ahmed Hassan",
         "FirstName": "Ahmed",
         "LastName": "Hassan",
@@ -132,7 +141,7 @@ CUSTOMERS: list[dict[str, str]] = [
         "Country": "USA",
     },
     {
-        "ID": "C006",
+        "customer_id": 6,
         "Fullname": "Priya Patel",
         "FirstName": "Priya",
         "LastName": "Patel",
@@ -148,7 +157,7 @@ CUSTOMERS: list[dict[str, str]] = [
         "Country": "USA",
     },
     {
-        "ID": "C007",
+        "customer_id": 7,
         "Fullname": "James Kim",
         "FirstName": "James",
         "LastName": "Kim",
@@ -164,7 +173,7 @@ CUSTOMERS: list[dict[str, str]] = [
         "Country": "USA",
     },
     {
-        "ID": "C008",
+        "customer_id": 8,
         "Fullname": "Linda Thornberry",
         "FirstName": "Linda",
         "LastName": "Thornberry",
@@ -180,7 +189,7 @@ CUSTOMERS: list[dict[str, str]] = [
         "Country": "",
     },
     {
-        "ID": "C009",
+        "customer_id": 9,
         "Fullname": "Carlos Reyes-Morales",
         "FirstName": "Carlos",
         "LastName": "Reyes-Morales",
@@ -196,7 +205,7 @@ CUSTOMERS: list[dict[str, str]] = [
         "Country": "USA",
     },
     {
-        "ID": "C010",
+        "customer_id": 10,
         "Fullname": "Susan Whitfield",
         "FirstName": "Susan",
         "LastName": "Whitfield",
@@ -214,8 +223,8 @@ CUSTOMERS: list[dict[str, str]] = [
 ]
 # fmt: on
 
-# Convenience lookup
-CUST: dict[str, dict[str, str]] = {c["ID"]: c for c in CUSTOMERS}
+# Convenience lookup by integer customer_id
+CUST: dict[int, dict[str, Any]] = {c["customer_id"]: c for c in CUSTOMERS}
 
 
 # ---------------------------------------------------------------------------
@@ -375,7 +384,7 @@ Open Enrollment Period: November 1 – November 30, 2023
 HR System: PeopleFirst HRIS
 
 PARTICIPANT 1
-Employee ID: {c1["ID"]}
+Employee ID: {c1["customer_id"]}
 Name: {c1["Fullname"]}
 DOB: {c1["DOB"]}
 SSN: {c1["SSN"]}
@@ -383,7 +392,7 @@ Coverage Selected: Medical PPO + Dental + Vision
 Effective Date: 01/01/2024
 
 PARTICIPANT 2
-Employee ID: {c2["ID"]}
+Employee ID: {c2["customer_id"]}
 Name: {last_first(c2)}
 DOB: {dob_us(c2["DOB"])}
 SSN: {ssn_nodash(c2["SSN"])}
@@ -391,7 +400,7 @@ Coverage Selected: HMO + Dental
 Effective Date: 01/01/2024
 
 PARTICIPANT 3
-Employee ID: {c3["ID"]}
+Employee ID: {c3["customer_id"]}
 Name: {c3["Fullname"]}
 DOB: {dob_eu(c3["DOB"])}
 SSN: {c3["SSN"]}
@@ -441,10 +450,10 @@ def make_payroll_register(customers: list[dict]) -> str:
         net = int(gross * 0.72)
         # Use abbreviation for some, full name for others
         name_col = f"J. {c['LastName']}" if c["FirstName"].startswith("J") else c["Fullname"]
-        # Alternate SSN format
-        ssn_col = ssn_nodash(c["SSN"]) if int(c["ID"][1:]) % 2 == 0 else c["SSN"]
+        # Alternate SSN format: odd customer_id = dashed, even = nodash
+        ssn_col = ssn_nodash(c["SSN"]) if c["customer_id"] % 2 == 0 else c["SSN"]
         lines.append(
-            f"{c['ID']:<8} {name_col:<25} {ssn_col:<14} ${gross:>9,.2f} ${net:>9,.2f} {c['State']:<4}"
+            f"{c['customer_id']:<8} {name_col:<25} {ssn_col:<14} ${gross:>9,.2f} ${net:>9,.2f} {c['State']:<4}"
         )
     lines += [
         "-" * 80,
@@ -464,7 +473,7 @@ def make_csv_employee_directory(customers: list[dict]) -> list[list[str]]:
     rows = [headers]
     for c in customers:
         rows.append([
-            c["ID"],
+            str(c["customer_id"]),
             c["Fullname"],
             c["SSN"],
             dob_us(c["DOB"]),
@@ -481,12 +490,12 @@ def make_csv_payroll_export(customers: list[dict]) -> list[list[str]]:
     headers = ["ID", "LastFirst", "SSN", "DOB_ISO", "Gross", "Deductions", "Net", "State"]
     rows = [headers]
     for i, c in enumerate(customers):
-        gross = 7_500 + (hash(c["ID"]) % 2_000)
+        gross = 7_500 + (hash(str(c["customer_id"])) % 2_000)
         deductions = int(gross * 0.28)
         net = gross - deductions
         ssn_col = c["SSN"] if i % 2 == 0 else ssn_nodash(c["SSN"])
         rows.append([
-            c["ID"],
+            str(c["customer_id"]),
             last_first(c),
             ssn_col,
             c["DOB"],
@@ -523,7 +532,7 @@ def make_csv_client_list(customers: list[dict]) -> list[list[str]]:
     rows = [headers]
     for c in customers:
         rows.append([
-            c["ID"],
+            str(c["customer_id"]),
             last_first(c),
             c["SSN"],
             dob_us(c["DOB"]),
@@ -571,7 +580,7 @@ def make_xlsx_payroll(customers: list[dict]) -> openpyxl.Workbook:
         gross = 21_000 + (hash(c["SSN"]) % 5_000)
         net = int(gross * 0.72)
         ws.append([
-            c["ID"],
+            c["customer_id"],
             c["Fullname"],
             ssn_nodash(c["SSN"]),
             c["DOB"],
@@ -590,7 +599,7 @@ def make_xlsx_benefits(customers: list[dict]) -> openpyxl.Workbook:
     plans = ["Medical PPO", "HMO", "Medical PPO + Dental", "Dental Only", "Vision"]
     for i, c in enumerate(customers):
         ws.append([
-            c["ID"],
+            c["customer_id"],
             last_first(c),
             dob_us(c["DOB"]),
             c["SSN"],
@@ -608,7 +617,7 @@ def make_xlsx_client_intake(customers: list[dict]) -> openpyxl.Workbook:
                "Address1", "Address2", "City", "State", "ZIP", "Country"])
     for c in customers:
         ws.append([
-            c["ID"], c["Fullname"], c["DOB"], c["SSN"], c["DriversLicense"],
+            c["customer_id"], c["Fullname"], c["DOB"], c["SSN"], c["DriversLicense"],
             c["Address1"], c["Address2"], c["City"], c["State"], c["ZipCode"], c["Country"],
         ])
     return wb
@@ -616,7 +625,6 @@ def make_xlsx_client_intake(customers: list[dict]) -> openpyxl.Workbook:
 
 # ---------------------------------------------------------------------------
 # Minimal BIFF5 XLS writer (pure Python stdlib — no xlwt required)
-# Produces a valid Excel 5.0/95 .xls file with a single sheet of strings/numbers.
 # ---------------------------------------------------------------------------
 
 def _biff_record(record_type: int, data: bytes) -> bytes:
@@ -630,43 +638,11 @@ def _biff_string(s: str) -> bytes:
     return struct.pack("<B", len(encoded)) + encoded
 
 
-def _write_biff_sheet(rows: list[list]) -> bytes:
-    """
-    Write a BIFF5 worksheet stream as raw bytes.
-    Supports str and int/float cell values.
-    """
-    records = io.BytesIO()
-
-    def wr(rtype: int, data: bytes) -> None:
-        records.write(_biff_record(rtype, data))
-
-    # BOF — BIFF5 worksheet
-    wr(0x0809, struct.pack("<HHHH", 0x0500, 0x0010, 0x0041, 0x0105))
-
-    for row_idx, row in enumerate(rows):
-        for col_idx, val in enumerate(row):
-            if isinstance(val, (int, float)):
-                # NUMBER record: row(2) col(2) xf(2) value(8 IEEE double)
-                rec = struct.pack("<HHH", row_idx, col_idx, 0x0F) + struct.pack("<d", float(val))
-                wr(0x0203, rec)
-            else:
-                # LABEL record: row(2) col(2) xf(2) string(counted byte string)
-                s = str(val) if val is not None else ""
-                rec = struct.pack("<HHH", row_idx, col_idx, 0x0F) + _biff_string(s)
-                wr(0x0204, rec)
-
-    # EOF
-    wr(0x000A, b"")
-    return records.getvalue()
-
-
 def _write_biff_workbook(sheet_name: str, rows: list[list]) -> bytes:
     """
     Write a minimal BIFF5 .xls workbook with one sheet.
-    Returns the raw bytes of the Compound Document (CFBF) file.
+    Falls back to SYLK format if xlwt is not installed.
     """
-    # We use the BIFF5 approach: embed a workbook stream in a minimal OLE2 container.
-    # For simplicity, use xlwt if available; otherwise fall back to our hand-rolled BIFF5.
     if _HAS_XLWT:
         wb = xlwt.Workbook()
         ws = wb.add_sheet(sheet_name)
@@ -677,13 +653,11 @@ def _write_biff_workbook(sheet_name: str, rows: list[list]) -> bytes:
         wb.save(buf)
         return buf.getvalue()
 
-    # Pure-Python fallback: write a minimal SYLK-format file that Excel opens as .xls
-    # SYLK is a text format that Windows Excel recognizes with .xls extension.
+    # Pure-Python fallback: SYLK format that Excel recognises with .xls extension
     lines = ["ID;PWXL;N;E"]
     for r, row in enumerate(rows):
         for c, val in enumerate(row):
             col_letter = chr(ord("A") + c) if c < 26 else f"A{chr(ord('A') + c - 26)}"
-            cell = f"{col_letter}{r + 1}"
             if isinstance(val, (int, float)):
                 lines.append(f"C;Y{r + 1};X{c + 1};N{val}")
             else:
@@ -704,7 +678,7 @@ def make_xls_payroll(customers: list[dict]) -> tuple[str, list[list]]:
         gross = 21_000 + (hash(c["SSN"]) % 5_000)
         net = int(gross * 0.72)
         rows.append([
-            c["ID"], c["Fullname"], c["SSN"],
+            c["customer_id"], c["Fullname"], c["SSN"],
             dob_eu(c["DOB"]), gross, net, c["State"],
         ])
     return "Payroll", rows
@@ -716,7 +690,7 @@ def make_xls_employee_directory(customers: list[dict]) -> tuple[str, list[list]]
     rows = [headers]
     for c in customers:
         rows.append([
-            c["ID"], c["FirstName"], c["LastName"],
+            c["customer_id"], c["FirstName"], c["LastName"],
             dob_us(c["DOB"]), ssn_nodash(c["SSN"]), c["DriversLicense"],
             c["Address1"], c["City"], c["State"], c["ZipCode"],
         ])
@@ -730,7 +704,7 @@ def make_xls_insurance_claims(customers: list[dict]) -> tuple[str, list[list]]:
     for row_idx, c in enumerate(customers, start=1):
         claim_id = f"CLM-2024-{1000 + row_idx:04d}"
         name = c["Fullname"].replace("Rodriguez", "Rodgriguez")  # intentional misspelling
-        amount = 1_500 + (hash(c["ID"]) % 3_000)
+        amount = 1_500 + (hash(str(c["customer_id"])) % 3_000)
         rows.append([
             claim_id, name, c["SSN"], c["DOB"],
             claim_types[row_idx % len(claim_types)],
@@ -741,13 +715,16 @@ def make_xls_insurance_claims(customers: list[dict]) -> tuple[str, list[list]]:
 
 # ---------------------------------------------------------------------------
 # Write helpers — write to simulated_files, compute MD5, copy to TEXT/
+# V2: returns only MD5 + file_path (forward-slash convention)
 # ---------------------------------------------------------------------------
 
-def write_bytes_and_index(filename: str, content: bytes) -> dict[str, Any]:
+def write_bytes_and_index(filename: str, content: bytes) -> dict[str, str]:
     """
     Write `content` to data/simulated_files/{filename},
-    compute MD5, copy to data/TEXT/{md5[:3]}/{md5}.ext,
-    return metadata dict.
+    compute MD5, copy to data/TEXT/{md5[:3]}/{md5}.ext.
+
+    Returns V2 metadata dict with only MD5 and file_path.
+    file_path uses forward-slash: data/TEXT/{md5[:3]}/{md5}.ext
     """
     sim_path = SIM_FILES_DIR / filename
     sim_path.write_bytes(content)
@@ -759,36 +736,32 @@ def write_bytes_and_index(filename: str, content: bytes) -> dict[str, Any]:
     text_path = text_subdir / f"{md5}{ext}"
     shutil.copy2(str(sim_path), str(text_path))
 
-    textpath_col = f"TEXT\\{md5[:3]}\\{md5}{ext}"
+    # V2: forward-slash file_path convention
+    file_path = f"data/TEXT/{md5[:3]}/{md5}{ext}"
     return {
-        "GUID": str(uuid.uuid4()),
         "MD5": md5,
-        "caseName": "SimulatedBreach2024",
-        "fileName": filename,
-        "fileExtension": ext.lstrip("."),
-        "TEXTPATH": textpath_col,
-        "isExclusion": "0",
+        "file_path": file_path,
     }
 
 
-def write_text_file(filename: str, content: str) -> dict[str, Any]:
+def write_text_file(filename: str, content: str) -> dict[str, str]:
     return write_bytes_and_index(filename, content.encode("utf-8"))
 
 
-def write_csv_file(filename: str, rows: list[list[str]]) -> dict[str, Any]:
+def write_csv_file(filename: str, rows: list[list[str]]) -> dict[str, str]:
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerows(rows)
     return write_bytes_and_index(filename, buf.getvalue().encode("utf-8"))
 
 
-def write_xlsx_file(filename: str, wb: openpyxl.Workbook) -> dict[str, Any]:
+def write_xlsx_file(filename: str, wb: openpyxl.Workbook) -> dict[str, str]:
     buf = io.BytesIO()
     wb.save(buf)
     return write_bytes_and_index(filename, buf.getvalue())
 
 
-def write_xls_file(filename: str, sheet_name_and_rows: tuple[str, list[list]]) -> dict[str, Any]:
+def write_xls_file(filename: str, sheet_name_and_rows: tuple[str, list[list]]) -> dict[str, str]:
     sheet_name, rows = sheet_name_and_rows
     content = _write_biff_workbook(sheet_name, rows)
     return write_bytes_and_index(filename, content)
@@ -808,83 +781,84 @@ def generate_all() -> None:
         d.mkdir(parents=True, exist_ok=True)
 
     # ------------------------------------------------------------------
-    # 2. Write master_pii.csv
+    # 2. Write master_data.csv (V2: customer_id PK, INT 1-10)
     # ------------------------------------------------------------------
-    pii_columns = [
-        "ID", "Fullname", "FirstName", "LastName", "DOB", "SSN",
+    master_data_columns = [
+        "customer_id",
+        "Fullname", "FirstName", "LastName", "DOB", "SSN",
         "DriversLicense", "Address1", "Address2", "Address3",
         "ZipCode", "City", "State", "Country",
     ]
-    with open(MASTER_PII_CSV, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=pii_columns)
+    with open(MASTER_DATA_CSV, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=master_data_columns)
         writer.writeheader()
         writer.writerows(CUSTOMERS)
 
-    print(f"  master_pii.csv written: {len(CUSTOMERS)} rows")
+    print(f"  master_data.csv written: {len(CUSTOMERS)} rows")
 
     # ------------------------------------------------------------------
-    # 3. Generate ~25 breach files and collect metadata
+    # 3. Generate ~25 breach files and collect V2 metadata
     # ------------------------------------------------------------------
-    metadata_rows: list[dict[str, Any]] = []
+    metadata_rows: list[dict[str, str]] = []
 
-    c = CUST  # shorthand
+    c = CUST  # shorthand (integer keys: 1..10)
 
-    # --- .txt files (8) ---
+    # --- .txt files (14) ---
     metadata_rows.append(write_text_file(
         "appointment_notes_mar2024.txt",
-        make_appointment_note(c["C001"], c["C005"]),
+        make_appointment_note(c[1], c[5]),
     ))
     metadata_rows.append(write_text_file(
         "appointment_notes_apr2024.txt",
-        make_appointment_note(c["C006"], c["C007"]),
+        make_appointment_note(c[6], c[7]),
     ))
     metadata_rows.append(write_text_file(
         "hr_onboarding_obrien.txt",
-        make_hr_onboarding(c["C001"]),
+        make_hr_onboarding(c[1]),
     ))
     metadata_rows.append(write_text_file(
         "hr_onboarding_chekuri.txt",
-        make_hr_onboarding(c["C003"]),
+        make_hr_onboarding(c[3]),
     ))
     metadata_rows.append(write_text_file(
         "insurance_claim_rodriguez_hassan.txt",
-        make_insurance_claim(c["C004"], c["C005"]),
+        make_insurance_claim(c[4], c[5]),
     ))
     metadata_rows.append(write_text_file(
         "insurance_claim_kim_patel.txt",
-        make_insurance_claim(c["C007"], c["C006"]),
+        make_insurance_claim(c[7], c[6]),
     ))
     metadata_rows.append(write_text_file(
         "payroll_register_q1_2024.txt",
-        make_payroll_register([c["C001"], c["C002"], c["C003"], c["C004"], c["C005"]]),
+        make_payroll_register([c[1], c[2], c[3], c[4], c[5]]),
     ))
     metadata_rows.append(write_text_file(
         "payroll_register_q2_2024.txt",
-        make_payroll_register([c["C006"], c["C007"], c["C008"], c["C009"], c["C010"]]),
+        make_payroll_register([c[6], c[7], c[8], c[9], c[10]]),
     ))
     metadata_rows.append(write_text_file(
         "tax_w2_hassan_2023.txt",
-        make_tax_w2(c["C005"]),
+        make_tax_w2(c[5]),
     ))
     metadata_rows.append(write_text_file(
         "tax_w2_patel_2023.txt",
-        make_tax_w2(c["C006"]),
+        make_tax_w2(c[6]),
     ))
     metadata_rows.append(write_text_file(
         "benefits_enrollment_batch1.txt",
-        make_benefits_enrollment(c["C001"], c["C003"], c["C008"]),
+        make_benefits_enrollment(c[1], c[3], c[8]),
     ))
     metadata_rows.append(write_text_file(
         "benefits_enrollment_batch2.txt",
-        make_benefits_enrollment(c["C004"], c["C007"], c["C010"]),
+        make_benefits_enrollment(c[4], c[7], c[10]),
     ))
     metadata_rows.append(write_text_file(
         "client_intake_whitfield.txt",
-        make_client_intake(c["C010"]),
+        make_client_intake(c[10]),
     ))
     metadata_rows.append(write_text_file(
         "client_intake_reyes_morales.txt",
-        make_client_intake(c["C009"]),
+        make_client_intake(c[9]),
     ))
 
     # --- .csv files (5) ---
@@ -909,14 +883,14 @@ def generate_all() -> None:
         make_csv_client_list(CUSTOMERS),
     ))
 
-    # --- .xlsx files (4) ---
+    # --- .xlsx files (5) ---
     metadata_rows.append(write_xlsx_file(
         "hr_form_smith_jones.xlsx",
-        make_xlsx_hr_form(c["C002"]),
+        make_xlsx_hr_form(c[2]),
     ))
     metadata_rows.append(write_xlsx_file(
         "hr_form_kim.xlsx",
-        make_xlsx_hr_form(c["C007"]),
+        make_xlsx_hr_form(c[7]),
     ))
     metadata_rows.append(write_xlsx_file(
         "payroll_q1_xlsx.xlsx",
@@ -948,9 +922,9 @@ def generate_all() -> None:
     print(f"  Breach files written: {len(metadata_rows)}")
 
     # ------------------------------------------------------------------
-    # 4. Write dlu_metadata.csv
+    # 4. Write dlu_metadata.csv (V2: only MD5 + file_path)
     # ------------------------------------------------------------------
-    dlu_columns = ["GUID", "MD5", "caseName", "fileName", "fileExtension", "TEXTPATH", "isExclusion"]
+    dlu_columns = ["MD5", "file_path"]
     with open(DLU_METADATA_CSV, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=dlu_columns)
         writer.writeheader()

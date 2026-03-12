@@ -5,6 +5,10 @@ Tests written BEFORE implementation (TDD Red phase).
 
 IMPORTANT: We do NOT import sqlalchemy models to avoid hangs.
 Instead we use a simple dataclass/dict to represent customer PII.
+
+V2 Adaptation: FakeMasterData replaces FakeMasterPII to align with
+the V2 MasterData table name. detect_leaks() accepts any object
+with the 13 PII field attributes.
 """
 
 import datetime
@@ -17,10 +21,12 @@ from app.services.leak_detection_service import detect_leaks, LeakDetectionResul
 # Fixtures
 # ---------------------------------------------------------------------------
 
-class FakeMasterPII:
-    """Lightweight stand-in for the MasterPII ORM model.
+class FakeMasterData:
+    """Lightweight stand-in for the MasterData ORM model (V2).
 
     Avoids importing sqlalchemy which can hang in this environment.
+    Replaces FakeMasterPII from V1 — same attribute structure, updated
+    name to align with V2 master_data table.
     """
 
     def __init__(self, **kwargs):
@@ -44,16 +50,20 @@ class FakeMasterPII:
             setattr(self, k, v)
 
 
+# Backward-compatible alias so any remaining FakeMasterPII references still work
+FakeMasterPII = FakeMasterData
+
+
 @pytest.fixture
 def customer():
     """Standard test customer with common PII values."""
-    return FakeMasterPII()
+    return FakeMasterData()
 
 
 @pytest.fixture
 def customer_all_fields():
     """Customer with all 13 fields populated (no nulls)."""
-    return FakeMasterPII(
+    return FakeMasterData(
         Address2="Apt 4B",
         Address3="Building C",
         Country="United States",
@@ -130,6 +140,19 @@ class TestTier1ExactDOB:
         """WHEN file text contains '15/05/1990' and customer DOB is 1990-05-15
         THEN DOB detected with method 'exact', confidence 1.0."""
         text = "Date of birth: 15/05/1990 recorded"
+        result = detect_leaks(text, customer)
+        assert result.DOB.found is True
+        assert result.DOB.method == "exact"
+        assert result.DOB.confidence == 1.0
+
+    def test_dob_european_dot_format(self, customer):
+        """WHEN file text contains '15.05.1990' (European dot separator)
+        and customer DOB is 1990-05-15
+        THEN DOB detected with method 'exact', confidence 1.0.
+
+        Spec: DOB match in European date format (dot)
+        """
+        text = "Date of birth: 15.05.1990 recorded"
         result = detect_leaks(text, customer)
         assert result.DOB.found is True
         assert result.DOB.method == "exact"

@@ -63,6 +63,7 @@ def _make_dlu_record(guid="abc-123", textpath=r"TEXT\c85\file.txt",
 # Test: DLU query filtering
 # ===========================================================================
 
+@pytest.mark.skip(reason="V1 DLU columns (fileExtension, isExclusion, caseName) removed in V2 model rewrite")
 class TestQueryDLURecords:
     """DLU query should filter by extension, isExclusion, and caseName."""
 
@@ -117,6 +118,7 @@ class TestQueryDLURecords:
 # Test: File path resolution
 # ===========================================================================
 
+@pytest.mark.skip(reason="V1 function _resolve_file_path removed in V2; see test_indexing_service_v2.py")
 class TestFilePathResolution:
     """File path resolution combines FILE_BASE_PATH + TEXTPATH."""
 
@@ -146,6 +148,7 @@ class TestFilePathResolution:
 # Test: Document building
 # ===========================================================================
 
+@pytest.mark.skip(reason="V1 function _build_document removed in V2; see test_indexing_service_v2.py")
 class TestBuildDocument:
     """Build a search document from a DLU record + extracted text."""
 
@@ -251,6 +254,7 @@ class TestBatchUpload:
 # Test: index_all_files
 # ===========================================================================
 
+@pytest.mark.skip(reason="V1 function index_all_files removed in V2; see test_indexing_service_v2.py")
 class TestIndexAllFiles:
     """index_all_files queries DLU, extracts text, builds docs, uploads."""
 
@@ -396,6 +400,7 @@ class TestIndexAllFiles:
 # Test: index_single_file
 # ===========================================================================
 
+@pytest.mark.skip(reason="V1 DLU column GUID removed in V2 model rewrite; use test_indexing_service_v2.py")
 class TestIndexSingleFile:
     """index_single_file handles the single-GUID case."""
 
@@ -551,5 +556,6 @@ class TestIndexResponse:
             "files_processed": 5,
             "files_succeeded": 4,
             "files_failed": 1,
+            "files_skipped": 0,
             "errors": ["g1: failed"],
         }

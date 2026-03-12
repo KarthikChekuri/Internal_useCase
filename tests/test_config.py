@@ -1,25 +1,41 @@
 """
 Tests for app/config.py — Settings loaded via pydantic-settings BaseSettings.
 
-TDD: These tests are written BEFORE the production code. They define the
-expected contract for the Settings class.
+V2 update: FILE_BASE_PATH and CASE_NAME have been removed. STRATEGIES_FILE
+has been added with a default of "strategies.yaml".
 """
 import os
 import pytest
 from pydantic import ValidationError
 
 
+# ---------------------------------------------------------------------------
+# Helpers — minimal required env vars for V2 Settings
+# ---------------------------------------------------------------------------
+
+REQUIRED_ENV = {
+    "DATABASE_URL": "mssql+pyodbc://user:pass@localhost/db",
+    "AZURE_SEARCH_ENDPOINT": "https://example.search.windows.net",
+    "AZURE_SEARCH_KEY": "test-key-abc123",
+}
+
+
+def _set_required(monkeypatch):
+    """Set the minimum required env vars so Settings() can be instantiated."""
+    for k, v in REQUIRED_ENV.items():
+        monkeypatch.setenv(k, v)
+
+
+# ---------------------------------------------------------------------------
+# Field presence tests
+# ---------------------------------------------------------------------------
+
 class TestSettingsFields:
-    """Settings class must expose all 6 required configuration fields."""
+    """Settings class must expose all required V2 configuration fields."""
 
     def test_settings_has_database_url_field(self, monkeypatch):
         """Settings must have a DATABASE_URL field of type str."""
-        monkeypatch.setenv("DATABASE_URL", "mssql+pyodbc://user:pass@localhost/db")
-        monkeypatch.setenv("AZURE_SEARCH_ENDPOINT", "https://example.search.windows.net")
-        monkeypatch.setenv("AZURE_SEARCH_KEY", "test-key-abc123")
-        monkeypatch.setenv("FILE_BASE_PATH", "/data/breach")
-        monkeypatch.setenv("CASE_NAME", "test-case-001")
-
+        _set_required(monkeypatch)
         from app.config import Settings
         settings = Settings()
         assert isinstance(settings.DATABASE_URL, str)
@@ -27,12 +43,7 @@ class TestSettingsFields:
 
     def test_settings_has_azure_search_endpoint_field(self, monkeypatch):
         """Settings must have an AZURE_SEARCH_ENDPOINT field of type str."""
-        monkeypatch.setenv("DATABASE_URL", "mssql+pyodbc://user:pass@localhost/db")
-        monkeypatch.setenv("AZURE_SEARCH_ENDPOINT", "https://example.search.windows.net")
-        monkeypatch.setenv("AZURE_SEARCH_KEY", "test-key-abc123")
-        monkeypatch.setenv("FILE_BASE_PATH", "/data/breach")
-        monkeypatch.setenv("CASE_NAME", "test-case-001")
-
+        _set_required(monkeypatch)
         from app.config import Settings
         settings = Settings()
         assert isinstance(settings.AZURE_SEARCH_ENDPOINT, str)
@@ -40,12 +51,7 @@ class TestSettingsFields:
 
     def test_settings_has_azure_search_key_field(self, monkeypatch):
         """Settings must have an AZURE_SEARCH_KEY field of type str."""
-        monkeypatch.setenv("DATABASE_URL", "mssql+pyodbc://user:pass@localhost/db")
-        monkeypatch.setenv("AZURE_SEARCH_ENDPOINT", "https://example.search.windows.net")
-        monkeypatch.setenv("AZURE_SEARCH_KEY", "test-key-abc123")
-        monkeypatch.setenv("FILE_BASE_PATH", "/data/breach")
-        monkeypatch.setenv("CASE_NAME", "test-case-001")
-
+        _set_required(monkeypatch)
         from app.config import Settings
         settings = Settings()
         assert isinstance(settings.AZURE_SEARCH_KEY, str)
@@ -53,85 +59,91 @@ class TestSettingsFields:
 
     def test_settings_has_azure_search_index_field(self, monkeypatch):
         """Settings must have an AZURE_SEARCH_INDEX field of type str."""
-        monkeypatch.setenv("DATABASE_URL", "mssql+pyodbc://user:pass@localhost/db")
-        monkeypatch.setenv("AZURE_SEARCH_ENDPOINT", "https://example.search.windows.net")
-        monkeypatch.setenv("AZURE_SEARCH_KEY", "test-key-abc123")
-        monkeypatch.setenv("FILE_BASE_PATH", "/data/breach")
-        monkeypatch.setenv("CASE_NAME", "test-case-001")
-
+        _set_required(monkeypatch)
         from app.config import Settings
         settings = Settings()
         assert isinstance(settings.AZURE_SEARCH_INDEX, str)
 
-    def test_settings_has_file_base_path_field(self, monkeypatch):
-        """Settings must have a FILE_BASE_PATH field of type str."""
-        monkeypatch.setenv("DATABASE_URL", "mssql+pyodbc://user:pass@localhost/db")
-        monkeypatch.setenv("AZURE_SEARCH_ENDPOINT", "https://example.search.windows.net")
-        monkeypatch.setenv("AZURE_SEARCH_KEY", "test-key-abc123")
-        monkeypatch.setenv("FILE_BASE_PATH", "/data/breach")
-        monkeypatch.setenv("CASE_NAME", "test-case-001")
-
+    def test_settings_has_strategies_file_field(self, monkeypatch):
+        """Settings must have a STRATEGIES_FILE field of type str."""
+        _set_required(monkeypatch)
         from app.config import Settings
         settings = Settings()
-        assert isinstance(settings.FILE_BASE_PATH, str)
-        assert settings.FILE_BASE_PATH == "/data/breach"
+        assert isinstance(settings.STRATEGIES_FILE, str)
 
-    def test_settings_has_case_name_field(self, monkeypatch):
-        """Settings must have a CASE_NAME field of type str."""
-        monkeypatch.setenv("DATABASE_URL", "mssql+pyodbc://user:pass@localhost/db")
-        monkeypatch.setenv("AZURE_SEARCH_ENDPOINT", "https://example.search.windows.net")
-        monkeypatch.setenv("AZURE_SEARCH_KEY", "test-key-abc123")
-        monkeypatch.setenv("FILE_BASE_PATH", "/data/breach")
-        monkeypatch.setenv("CASE_NAME", "test-case-001")
-
+    def test_settings_does_not_have_file_base_path(self, monkeypatch):
+        """FILE_BASE_PATH has been removed from Settings in V2."""
+        _set_required(monkeypatch)
         from app.config import Settings
         settings = Settings()
-        assert isinstance(settings.CASE_NAME, str)
-        assert settings.CASE_NAME == "test-case-001"
+        assert not hasattr(settings, "FILE_BASE_PATH"), (
+            "FILE_BASE_PATH should have been removed from Settings in V2"
+        )
 
+    def test_settings_does_not_have_case_name(self, monkeypatch):
+        """CASE_NAME has been removed from Settings in V2."""
+        _set_required(monkeypatch)
+        from app.config import Settings
+        settings = Settings()
+        assert not hasattr(settings, "CASE_NAME"), (
+            "CASE_NAME should have been removed from Settings in V2"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Default value tests
+# ---------------------------------------------------------------------------
 
 class TestSettingsDefaults:
     """Settings class must provide sensible defaults where appropriate."""
 
     def test_azure_search_index_defaults_to_breach_file_index(self, monkeypatch):
         """AZURE_SEARCH_INDEX must default to 'breach-file-index' when not set."""
-        monkeypatch.setenv("DATABASE_URL", "mssql+pyodbc://user:pass@localhost/db")
-        monkeypatch.setenv("AZURE_SEARCH_ENDPOINT", "https://example.search.windows.net")
-        monkeypatch.setenv("AZURE_SEARCH_KEY", "test-key-abc123")
-        monkeypatch.setenv("FILE_BASE_PATH", "/data/breach")
-        monkeypatch.setenv("CASE_NAME", "test-case-001")
-        # Explicitly unset AZURE_SEARCH_INDEX so default kicks in
+        _set_required(monkeypatch)
         monkeypatch.delenv("AZURE_SEARCH_INDEX", raising=False)
-
         from app.config import Settings
         settings = Settings()
         assert settings.AZURE_SEARCH_INDEX == "breach-file-index"
 
     def test_azure_search_index_can_be_overridden(self, monkeypatch):
         """AZURE_SEARCH_INDEX default can be overridden by environment variable."""
-        monkeypatch.setenv("DATABASE_URL", "mssql+pyodbc://user:pass@localhost/db")
-        monkeypatch.setenv("AZURE_SEARCH_ENDPOINT", "https://example.search.windows.net")
-        monkeypatch.setenv("AZURE_SEARCH_KEY", "test-key-abc123")
+        _set_required(monkeypatch)
         monkeypatch.setenv("AZURE_SEARCH_INDEX", "custom-index-name")
-        monkeypatch.setenv("FILE_BASE_PATH", "/data/breach")
-        monkeypatch.setenv("CASE_NAME", "test-case-001")
-
         from app.config import Settings
         settings = Settings()
         assert settings.AZURE_SEARCH_INDEX == "custom-index-name"
 
+    def test_strategies_file_defaults_to_strategies_yaml(self, monkeypatch):
+        """STRATEGIES_FILE must default to 'strategies.yaml' when not set."""
+        _set_required(monkeypatch)
+        monkeypatch.delenv("STRATEGIES_FILE", raising=False)
+        from app.config import Settings
+        settings = Settings()
+        assert settings.STRATEGIES_FILE == "strategies.yaml"
+
+    def test_strategies_file_can_be_overridden(self, monkeypatch):
+        """STRATEGIES_FILE default can be overridden by environment variable."""
+        _set_required(monkeypatch)
+        monkeypatch.setenv("STRATEGIES_FILE", "custom_strategies.yaml")
+        from app.config import Settings
+        settings = Settings()
+        assert settings.STRATEGIES_FILE == "custom_strategies.yaml"
+
+
+# ---------------------------------------------------------------------------
+# Environment loading tests
+# ---------------------------------------------------------------------------
 
 class TestSettingsLoadsFromEnvironment:
     """Settings class must load all values from environment variables."""
 
-    def test_settings_loads_all_six_fields_from_env(self, monkeypatch):
-        """Given all 6 env vars are set, Settings must load all of them correctly."""
+    def test_settings_loads_all_required_fields_from_env(self, monkeypatch):
+        """Given all required env vars are set, Settings must load them correctly."""
         monkeypatch.setenv("DATABASE_URL", "mssql+pyodbc://sa:secret@localhost/BreachDB")
         monkeypatch.setenv("AZURE_SEARCH_ENDPOINT", "https://mysearch.search.windows.net")
         monkeypatch.setenv("AZURE_SEARCH_KEY", "abc-def-ghi-jkl")
         monkeypatch.setenv("AZURE_SEARCH_INDEX", "my-breach-index")
-        monkeypatch.setenv("FILE_BASE_PATH", "C:/data/breach_files")
-        monkeypatch.setenv("CASE_NAME", "Case-2024-001")
+        monkeypatch.setenv("STRATEGIES_FILE", "my_strategies.yaml")
 
         from app.config import Settings
         settings = Settings()
@@ -140,19 +152,16 @@ class TestSettingsLoadsFromEnvironment:
         assert settings.AZURE_SEARCH_ENDPOINT == "https://mysearch.search.windows.net"
         assert settings.AZURE_SEARCH_KEY == "abc-def-ghi-jkl"
         assert settings.AZURE_SEARCH_INDEX == "my-breach-index"
-        assert settings.FILE_BASE_PATH == "C:/data/breach_files"
-        assert settings.CASE_NAME == "Case-2024-001"
+        assert settings.STRATEGIES_FILE == "my_strategies.yaml"
 
     def test_settings_raises_when_required_fields_missing(self, monkeypatch):
         """Settings must raise ValidationError when required fields are absent."""
-        # Clear all relevant env vars
         for key in ["DATABASE_URL", "AZURE_SEARCH_ENDPOINT", "AZURE_SEARCH_KEY",
-                    "AZURE_SEARCH_INDEX", "FILE_BASE_PATH", "CASE_NAME"]:
+                    "AZURE_SEARCH_INDEX", "STRATEGIES_FILE"]:
             monkeypatch.delenv(key, raising=False)
 
         from app.config import Settings
         with pytest.raises(ValidationError):
-            # Override _env_file to prevent reading .env from disk
             Settings(_env_file=None)
 
     def test_settings_is_importable_from_app_config(self):
@@ -162,12 +171,7 @@ class TestSettingsLoadsFromEnvironment:
 
     def test_get_settings_function_exists(self, monkeypatch):
         """app.config must expose a get_settings() callable for dependency injection."""
-        monkeypatch.setenv("DATABASE_URL", "mssql+pyodbc://user:pass@localhost/db")
-        monkeypatch.setenv("AZURE_SEARCH_ENDPOINT", "https://example.search.windows.net")
-        monkeypatch.setenv("AZURE_SEARCH_KEY", "test-key-abc123")
-        monkeypatch.setenv("FILE_BASE_PATH", "/data/breach")
-        monkeypatch.setenv("CASE_NAME", "test-case-001")
-
+        _set_required(monkeypatch)
         from app.config import get_settings, Settings
         assert callable(get_settings)
         settings = get_settings()
