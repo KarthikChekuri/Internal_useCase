@@ -6,6 +6,7 @@
 #   bash orchestrator.sh status                    # Show work board
 #   bash orchestrator.sh plan                      # Output JSON manifest with agent prompts
 #   bash orchestrator.sh complete "Phase V2-X.Y"   # Mark phase done, unblock dependents
+#   bash orchestrator.sh complete "Phase V3-X.Y"   # Also supports V3 phases
 # =============================================================================
 
 set -euo pipefail
@@ -32,7 +33,8 @@ EXTRA_ARGS = sys.argv[3:]
 
 ROADMAP_PATH = PROJECT_ROOT / "plans" / "roadmap.md"
 CLAUDE_MD_PATH = PROJECT_ROOT / "CLAUDE.md"
-SPECS_BASE = PROJECT_ROOT / "openspec" / "changes" / "breach-pii-search"
+SPECS_BASE_V2 = PROJECT_ROOT / "openspec" / "changes" / "breach-pii-search"
+SPECS_BASE_V3 = PROJECT_ROOT / "openspec" / "changes" / "v3-azure-only"
 
 # ANSI colors
 BOLD = "\033[1m"
@@ -105,8 +107,11 @@ def _parse_depends(text: str) -> list[str]:
     v1_matches = re.findall(r"Phase \d+\.\d+", text)
     v2_matches = re.findall(r"(?<!Phase )V2-\d+\.\d+", text)
     v2_full_matches = re.findall(r"Phase V2-\d+\.\d+", text)
+    v3_matches = re.findall(r"(?<!Phase )V3-\d+\.\d+", text)
+    v3_full_matches = re.findall(r"Phase V3-\d+\.\d+", text)
     normalized_v2 = [f"Phase {m}" for m in v2_matches]
-    return v1_matches + v2_full_matches + normalized_v2
+    normalized_v3 = [f"Phase {m}" for m in v3_matches]
+    return v1_matches + v2_full_matches + normalized_v2 + v3_full_matches + normalized_v3
 
 
 def parse_roadmap(roadmap_path: Path = ROADMAP_PATH) -> list[Phase]:
@@ -116,7 +121,7 @@ def parse_roadmap(roadmap_path: Path = ROADMAP_PATH) -> list[Phase]:
     current_phase: Phase | None = None
 
     for line in lines:
-        m = re.match(r"^## ((?:V2 )?Batch \d+.*)", line)
+        m = re.match(r"^## ((?:V[23] )?Batch \d+.*)", line)
         if m:
             if current_phase and current_phase.id:
                 phases.append(current_phase)
@@ -124,7 +129,7 @@ def parse_roadmap(roadmap_path: Path = ROADMAP_PATH) -> list[Phase]:
             current_batch = m.group(1)
             continue
 
-        m = re.match(r"^### (Phase (?:V2-)?\d+\.\d+):\s*(.*)", line)
+        m = re.match(r"^### (Phase (?:V[23]-)?\d+\.\d+):\s*(.*)", line)
         if m:
             if current_phase and current_phase.id:
                 phases.append(current_phase)
@@ -218,7 +223,10 @@ def read_spec(ref_path: str) -> str | None:
     full = PROJECT_ROOT / ref_path
     if full.is_file():
         return full.read_text(encoding="utf-8")
-    full = SPECS_BASE / ref_path
+    full = SPECS_BASE_V2 / ref_path
+    if full.is_file():
+        return full.read_text(encoding="utf-8")
+    full = SPECS_BASE_V3 / ref_path
     if full.is_file():
         return full.read_text(encoding="utf-8")
     return None
@@ -414,7 +422,7 @@ def cmd_complete(phase_id: str) -> None:
     found = False
     phase_line_idx = -1
     for i, line in enumerate(lines):
-        m = re.match(r"^### (Phase (?:V2-)?\d+\.\d+):", line)
+        m = re.match(r"^### (Phase (?:V[23]-)?\d+\.\d+):", line)
         if m and m.group(1) == phase_id:
             phase_line_idx = i
             found = True
@@ -472,7 +480,7 @@ elif COMMAND == "status":
 elif COMMAND == "complete":
     if not EXTRA_ARGS:
         print("ERROR: missing phase_id argument", file=sys.stderr)
-        print('Usage: bash orchestrator.sh complete "Phase V2-X.Y"', file=sys.stderr)
+        print('Usage: bash orchestrator.sh complete "Phase V2-X.Y"  (or V3-X.Y)', file=sys.stderr)
         sys.exit(1)
     cmd_complete(EXTRA_ARGS[0])
 else:
@@ -481,11 +489,12 @@ else:
 PYEOF
     ;;
   help|*)
-    echo "Usage: bash orchestrator.sh {status|plan|complete \"Phase V2-X.Y\"}"
+    echo "Usage: bash orchestrator.sh {status|plan|complete \"Phase V2-X.Y|V3-X.Y\"}"
     echo ""
     echo "Commands:"
-    echo "  status                       Show the agent work board"
-    echo "  plan                         Output JSON manifest of launchable phases with prompts"
-    echo "  complete \"Phase V2-X.Y\"      Mark a phase complete and unblock dependents"
+    echo "  status                            Show the agent work board"
+    echo "  plan                              Output JSON manifest of launchable phases with prompts"
+    echo "  complete \"Phase V2-X.Y\"           Mark a V2 phase complete and unblock dependents"
+    echo "  complete \"Phase V3-X.Y\"           Mark a V3 phase complete and unblock dependents"
     ;;
 esac

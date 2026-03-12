@@ -130,3 +130,67 @@ class TestGetSettings:
             result2 = get_settings()
             assert result1 is result2
             get_settings.cache_clear()
+
+
+class TestGetSearchClientV3:
+    """Tests for the get_search_client_v3() dependency."""
+
+    def test_get_search_client_v3_returns_search_client(self):
+        """get_search_client_v3() should return an Azure SearchClient instance."""
+        from app.dependencies import get_search_client_v3
+
+        mock_settings = MagicMock()
+        mock_settings.AZURE_SEARCH_ENDPOINT = "https://test.search.windows.net"
+        mock_settings.AZURE_SEARCH_KEY = "test-key"
+        mock_settings.AZURE_SEARCH_INDEX_V3 = "breach-file-index-v3"
+
+        mock_client = MagicMock()
+
+        with patch("app.dependencies.get_settings", return_value=mock_settings), \
+             patch("app.dependencies.SearchClient", return_value=mock_client) as mock_cls, \
+             patch("app.dependencies.AzureKeyCredential") as mock_cred_cls:
+            mock_cred = MagicMock()
+            mock_cred_cls.return_value = mock_cred
+
+            client = get_search_client_v3()
+
+            assert client is mock_client
+            mock_cred_cls.assert_called_once_with("test-key")
+            mock_cls.assert_called_once_with(
+                endpoint="https://test.search.windows.net",
+                index_name="breach-file-index-v3",
+                credential=mock_cred,
+            )
+
+    def test_get_search_client_v3_uses_v3_index_name(self):
+        """get_search_client_v3() must use AZURE_SEARCH_INDEX_V3, not AZURE_SEARCH_INDEX."""
+        from app.dependencies import get_search_client_v3
+
+        mock_settings = MagicMock()
+        mock_settings.AZURE_SEARCH_ENDPOINT = "https://test.search.windows.net"
+        mock_settings.AZURE_SEARCH_KEY = "test-key"
+        mock_settings.AZURE_SEARCH_INDEX_V3 = "breach-file-index-v3"
+        mock_settings.AZURE_SEARCH_INDEX = "breach-file-index"
+
+        with patch("app.dependencies.get_settings", return_value=mock_settings), \
+             patch("app.dependencies.SearchClient") as mock_cls, \
+             patch("app.dependencies.AzureKeyCredential"):
+            get_search_client_v3()
+            call_kwargs = mock_cls.call_args.kwargs
+            assert call_kwargs["index_name"] == "breach-file-index-v3"
+            assert call_kwargs["index_name"] != "breach-file-index"
+
+    def test_get_search_client_v3_calls_get_settings(self):
+        """get_search_client_v3() should call get_settings() to load config."""
+        from app.dependencies import get_search_client_v3
+
+        mock_settings = MagicMock()
+        mock_settings.AZURE_SEARCH_ENDPOINT = "https://test.search.windows.net"
+        mock_settings.AZURE_SEARCH_KEY = "test-key"
+        mock_settings.AZURE_SEARCH_INDEX_V3 = "breach-file-index-v3"
+
+        with patch("app.dependencies.get_settings", return_value=mock_settings) as mock_get, \
+             patch("app.dependencies.SearchClient"), \
+             patch("app.dependencies.AzureKeyCredential"):
+            get_search_client_v3()
+            mock_get.assert_called_once()

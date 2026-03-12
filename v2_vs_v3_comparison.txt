@@ -1,0 +1,87 @@
+BREACH PII SEARCH - V2 vs V3 COMPARISON (actual PII values from master_data)
+Date: 2026-03-12
+
+========================================================================================================================================================================================================
+  V2 (Python regex+fuzzy)  (batch: 87aaf502-2fb9-4c92-9c38-3111058f0d31)
+========================================================================================================================================================================================================
+CID | MD5      | Fullname             | First        | Last            | DOB        | SSN         | DL           | Address1             | Ad2        | Ad3   | Zip   | City         | St | Cty   | Strategy                                      |   Conf |      AZ | Rev
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  1 | 7567c13e | Robert O'Brien       | Robert       | O'Brien         | 1975-03-22 | 523-45-7891 | MA-O8834521  | 14 Clover Lane       | -          | -     | 02101 | Boston       | MA | USA   | fullname_ssn                                  |  0.909 |   22.62 | NO
+  1 | 897e213d | Robert O'Brien       | Robert       | O'Brien         | 1975-03-22 | 523-45-7891 | MA-O8834521  | 14 Clover Lane       | -          | -     | 02101 | Boston       | MA | -     | fullname_ssn                                  |  0.946 |   35.41 | NO
+  1 | a7980191 | Robert O'Brien       | Robert       | O'Brien         | 1975-03-22 | 523-45-7891 | MA-O8834521  | 14 Clover Lane       | Apt 3B     | -     | 02101 | Boston       | MA | -     | fullname_ssn                                  |  0.963 |   35.41 | NO
+  1 | a89c9fe9 | Robert O'Brien       | Robert       | O'Brien         | 1975-03-22 | 523-45-7891 | -            | 14 Clover Lane       | -          | -     | 02101 | Boston       | MA | USA   | fullname_ssn                                  |  0.878 |   19.59 | NO
+  1 | bcfab316 | Robert O'Brien       | Robert       | O'Brien         | 1975-03-22 | 523-45-7891 | -            | -                    | -          | -     | -     | Boston       | MA | USA   | fullname_ssn                                  |  0.856 |   19.59 | NO
+  1 | bfe8845b | Robert O'Brien       | Robert       | O'Brien         | 1975-03-22 | 523-45-7891 | -            | -                    | -          | -     | -     | -            | -  | -     | fullname_ssn                                  |  0.802 |   23.19 | NO
+  1 | d29d6332 | Robert O'Brien       | Robert       | O'Brien         | 1975-03-22 | 523-45-7891 | MA-O8834521  | 14 Clover Lane       | -          | -     | 02101 | -            | MA | USA   | fullname_ssn                                  |  0.916 |   28.46 | NO
+  2 | 7567c13e | Jennifer Smith-Jones | Jennifer     | Smith-Jones     | 1988-11-04 | 412-67-3309 | TX-J9921034  | 8820 Pecan Street    | -          | -     | 78701 | Austin       | TX | USA   | fullname_ssn                                  |  0.894 |    23.1 | NO
+  2 | a89c9fe9 | Jennifer Smith-Jones | Jennifer     | Smith-Jones     | 1988-11-04 | 412-67-3309 | -            | 8820 Pecan Street    | -          | -     | 78701 | Austin       | TX | USA   | fullname_ssn                                  |  0.895 |    31.5 | NO
+  2 | bcfab316 | Jennifer Smith-Jones | Jennifer     | Smith-Jones     | 1988-11-04 | 412-67-3309 | -            | -                    | -          | -     | -     | Austin       | TX | USA   | fullname_ssn                                  |  0.868 |    31.5 | NO
+  2 | d29d6332 | Jennifer Smith-Jones | Jennifer     | Smith-Jones     | 1988-11-04 | 412-67-3309 | TX-J9921034  | 8820 Pecan Street    | -          | -     | 78701 | -            | TX | USA   | fullname_ssn                                  |  0.889 |   28.78 | NO
+  3 | 133dc021 | Karthik Chekuri      | Karthik      | Chekuri         | 1992-07-15 | 634-21-8805 | CA-K3344112  | 2200 Wilshire Blvd   | Suite 510  | -     | 90057 | Los Angeles  | CA | -     | fullname_ssn                                  |  0.949 |   39.76 | NO
+  3 | 7567c13e | Karthik Chekuri      | Karthik      | Chekuri         | 1992-07-15 | 634-21-8805 | CA-K3344112  | 2200 Wilshire Blvd   | -          | -     | 90057 | Los Angeles  | CA | USA   | fullname_ssn                                  |  0.884 |   22.61 | NO
+  3 | a89c9fe9 | Karthik Chekuri      | Karthik      | Chekuri         | 1992-07-15 | 634-21-8805 | -            | 2200 Wilshire Blvd   | -          | -     | 90057 | Los Angeles  | CA | USA   | fullname_ssn                                  |   0.87 |   23.19 | NO
+  3 | bcfab316 | Karthik Chekuri      | Karthik      | Chekuri         | 1992-07-15 | 634-21-8805 | -            | -                    | -          | -     | -     | Los Angeles  | CA | USA   | fullname_ssn                                  |  0.853 |   23.19 | NO
+  3 | bfe8845b | Karthik Chekuri      | Karthik      | Chekuri         | 1992-07-15 | 634-21-8805 | -            | -                    | -          | -     | -     | -            | -  | -     | fullname_ssn                                  |  0.796 |    20.9 | NO
+  3 | d29d6332 | Karthik Chekuri      | Karthik      | Chekuri         | 1992-07-15 | 634-21-8805 | CA-K3344112  | 2200 Wilshire Blvd   | -          | -     | 90057 | -            | CA | USA   | fullname_ssn                                  |  0.891 |   28.45 | NO
+
+Showing 17 rows (customers 1-3)
+
+========================================================================================================================================================================================================
+  V3 (Azure-only + enrichment, deduped)  (batch: c46f29d8-2324-4179-867d-8f67a01a3d5e)
+========================================================================================================================================================================================================
+CID | MD5      | Fullname             | First        | Last            | DOB        | SSN         | DL           | Address1             | Ad2        | Ad3   | Zip   | City         | St | Cty   | Strategy                                      |   Conf |      AZ | Rev
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  1 | 3a41a068 | Robert O'Brien       | Robert       | O'Brien         | -          | 523-45-7891 | -            | -                    | -          | -     | -     | -            | MA | -     | ["fullname_ssn"]                              |  0.281 |   19.15 | YES
+  1 | 3d6cf5de | Robert O'Brien       | Robert       | O'Brien         | 1975-03-22 | 523-45-7891 | -            | -                    | -          | -     | -     | -            | MA | USA   | ["fullname_ssn", "lastname_dob"]              |  0.218 |    14.4 | YES
+  1 | 7567c13e | Robert O'Brien       | Robert       | O'Brien         | 1975-03-22 | 523-45-7891 | MA-O8834521  | 14 Clover Lane       | -          | -     | 02101 | Boston       | MA | USA   | ["fullname_ssn", "lastname_dob", "unique_iden |   0.17 |   19.25 | YES
+  1 | 897e213d | Robert O'Brien       | Robert       | O'Brien         | 1975-03-22 | 523-45-7891 | MA-O8834521  | 14 Clover Lane       | -          | -     | 02101 | Boston       | MA | -     | ["fullname_ssn", "lastname_dob", "unique_iden |  0.301 |   28.84 | YES
+  1 | 8a3e3526 | Robert O'Brien       | Robert       | O'Brien         | 1975-03-22 | 523-45-7891 | -            | -                    | -          | -     | -     | -            | MA | -     | ["fullname_ssn", "lastname_dob"]              |   0.29 |   16.23 | YES
+  1 | 9bc953bd | Robert O'Brien       | Robert       | O'Brien         | 1975-03-22 | 523-45-7891 | -            | -                    | -          | -     | -     | -            | MA | -     | ["fullname_ssn", "lastname_dob"]              |  0.305 |   19.15 | YES
+  1 | a7980191 | Robert O'Brien       | Robert       | O'Brien         | 1975-03-22 | 523-45-7891 | MA-O8834521  | 14 Clover Lane       | Apt 3B     | -     | 02101 | Boston       | MA | USA   | ["fullname_ssn", "lastname_dob", "unique_iden |  0.333 |    37.8 | YES
+  1 | a89c9fe9 | Robert O'Brien       | Robert       | O'Brien         | 1975-03-22 | 523-45-7891 | -            | 14 Clover Lane       | -          | -     | 02101 | Boston       | MA | USA   | ["fullname_ssn", "lastname_dob"]              |   0.24 |   24.52 | YES
+  1 | bcfab316 | Robert O'Brien       | Robert       | O'Brien         | 1975-03-22 | 523-45-7891 | -            | -                    | -          | -     | -     | Boston       | MA | USA   | ["fullname_ssn", "lastname_dob"]              |  0.222 |    14.4 | YES
+  1 | bfe8845b | Robert O'Brien       | Robert       | O'Brien         | 1975-03-22 | 523-45-7891 | -            | -                    | -          | -     | -     | -            | MA | -     | ["fullname_ssn", "lastname_dob"]              |  0.261 |   17.03 | YES
+  1 | c596fb0a | Robert O'Brien       | Robert       | O'Brien         | 1975-03-22 | 523-45-7891 | -            | -                    | -          | -     | -     | -            | MA | -     | ["fullname_ssn", "lastname_dob"]              |  0.222 |    14.4 | YES
+  1 | d29d6332 | Robert O'Brien       | Robert       | O'Brien         | 1975-03-22 | 523-45-7891 | MA-O8834521  | 14 Clover Lane       | -          | -     | 02101 | -            | MA | USA   | ["fullname_ssn", "lastname_dob", "unique_iden |  0.219 |   24.52 | YES
+  1 | d99e7337 | Robert O'Brien       | Robert       | O'Brien         | 1975-03-22 | 523-45-7891 | -            | -                    | -          | -     | -     | -            | MA | -     | ["fullname_ssn", "lastname_dob"]              |  0.305 |   19.15 | YES
+  1 | dca3e904 | Robert O'Brien       | Robert       | O'Brien         | 1975-03-22 | 523-45-7891 | MA-O8834521  | 14 Clover Lane       | Apt 3B     | -     | 02101 | Boston       | MA | USA   | ["fullname_ssn", "lastname_dob", "unique_iden |  0.215 |    26.7 | YES
+  2 | 3d6cf5de | Jennifer Smith-Jones | Jennifer     | -               | 1988-11-04 | 412-67-3309 | -            | -                    | -          | -     | -     | -            | TX | USA   | ["fullname_ssn"]                              |  0.252 |   21.32 | YES
+  2 | 7567c13e | Jennifer Smith-Jones | Jennifer     | -               | 1988-11-04 | 412-67-3309 | TX-J9921034  | 8820 Pecan Street    | -          | -     | 78701 | Austin       | TX | USA   | ["fullname_ssn", "unique_identifiers"]        |  0.138 |   21.87 | YES
+  2 | 838fdf64 | Jennifer Smith-Jones | Jennifer     | -               | 1988-11-04 | 412-67-3309 | TX-J9921034  | 8820 Pecan Street    | -          | -     | 78701 | Austin       | TX | USA   | ["fullname_ssn", "unique_identifiers"]        |  0.416 |    39.9 | YES
+  2 | 8a3e3526 | Jennifer Smith-Jones | Jennifer     | -               | 1988-11-04 | 412-67-3309 | -            | -                    | -          | -     | -     | -            | TX | -     | ["fullname_ssn"]                              |  0.223 |   16.76 | YES
+  2 | 9bc953bd | Jennifer Smith-Jones | Jennifer     | -               | 1988-11-04 | 412-67-3309 | -            | -                    | -          | -     | -     | -            | TX | -     | ["fullname_ssn"]                              |  0.351 |   28.34 | YES
+  2 | a89c9fe9 | Jennifer Smith-Jones | Jennifer     | -               | 1988-11-04 | 412-67-3309 | -            | 8820 Pecan Street    | -          | -     | 78701 | Austin       | TX | USA   | ["fullname_ssn"]                              |  0.276 |   27.89 | YES
+  2 | bcfab316 | Jennifer Smith-Jones | Jennifer     | -               | 1988-11-04 | 412-67-3309 | -            | -                    | -          | -     | -     | Austin       | TX | USA   | ["fullname_ssn"]                              |  0.257 |   21.32 | YES
+  2 | c596fb0a | Jennifer Smith-Jones | Jennifer     | -               | 1988-11-04 | 412-67-3309 | -            | -                    | -          | -     | -     | -            | -  | -     | ["fullname_ssn"]                              |  0.281 |   21.32 | YES
+  2 | d29d6332 | Jennifer Smith-Jones | Jennifer     | -               | 1988-11-04 | 412-67-3309 | TX-J9921034  | 8820 Pecan Street    | -          | -     | 78701 | -            | TX | USA   | ["fullname_ssn", "unique_identifiers"]        |  0.178 |   27.89 | YES
+  2 | d99e7337 | Jennifer Smith-Jones | Jennifer     | -               | 1988-11-04 | 412-67-3309 | -            | -                    | -          | -     | -     | -            | TX | -     | ["fullname_ssn"]                              |  0.205 |   15.41 | YES
+  2 | dca3e904 | Jennifer Smith-Jones | Jennifer     | -               | 1988-11-04 | 412-67-3309 | TX-J9921034  | 8820 Pecan Street    | -          | -     | 78701 | Austin       | TX | USA   | ["fullname_ssn", "unique_identifiers"]        |  0.234 |   21.87 | YES
+  3 | 133dc021 | Karthik Chekuri      | Karthik      | Chekuri         | 1992-07-15 | 634-21-8805 | CA-K3344112  | 2200 Wilshire Blvd   | Suite 510  | -     | 90057 | Los Angeles  | CA | USA   | ["fullname_ssn", "lastname_dob", "unique_iden |  0.395 |   38.14 | YES
+  3 | 3a41a068 | Karthik Chekuri      | Karthik      | Chekuri         | -          | 634-21-8805 | -            | -                    | -          | -     | -     | -            | CA | -     | ["fullname_ssn"]                              |  0.326 |   23.26 | YES
+  3 | 3d6cf5de | Karthik Chekuri      | Karthik      | Chekuri         | 1992-07-15 | 634-21-8805 | -            | -                    | -          | -     | -     | -            | CA | USA   | ["fullname_ssn", "lastname_dob"]              |  0.254 |    17.5 | YES
+  3 | 7567c13e | Karthik Chekuri      | Karthik      | Chekuri         | 1992-07-15 | 634-21-8805 | CA-K3344112  | 2200 Wilshire Blvd   | -          | -     | 90057 | Los Angeles  | CA | USA   | ["fullname_ssn", "lastname_dob", "unique_iden |  0.184 |   25.55 | YES
+  3 | 8a3e3526 | Karthik Chekuri      | Karthik      | Chekuri         | 1992-07-15 | 634-21-8805 | -            | -                    | -          | -     | -     | -            | CA | -     | ["fullname_ssn", "lastname_dob"]              |  0.285 |   18.28 | YES
+  3 | 9bc953bd | Karthik Chekuri      | Karthik      | Chekuri         | 1992-07-15 | 634-21-8805 | -            | -                    | -          | -     | -     | -            | CA | -     | ["fullname_ssn", "lastname_dob"]              |  0.355 |   23.26 | YES
+  3 | a89c9fe9 | Karthik Chekuri      | Karthik      | Chekuri         | 1992-07-15 | 634-21-8805 | -            | 2200 Wilshire Blvd   | -          | -     | 90057 | Los Angeles  | CA | USA   | ["fullname_ssn", "lastname_dob"]              |    0.3 |   32.48 | YES
+  3 | bcfab316 | Karthik Chekuri      | Karthik      | Chekuri         | 1992-07-15 | 634-21-8805 | -            | -                    | -          | -     | -     | Los Angeles  | CA | USA   | ["fullname_ssn", "lastname_dob"]              |  0.285 |   29.43 | YES
+  3 | bfe8845b | Karthik Chekuri      | Karthik      | Chekuri         | 1992-07-15 | 634-21-8805 | -            | -                    | -          | -     | -     | -            | -  | -     | ["fullname_ssn", "lastname_dob"]              |  0.259 |   14.94 | YES
+  3 | c596fb0a | Karthik Chekuri      | Karthik      | Chekuri         | 1992-07-15 | 634-21-8805 | -            | -                    | -          | -     | -     | -            | -  | -     | ["fullname_ssn", "lastname_dob"]              |  0.289 |    17.5 | YES
+  3 | d29d6332 | Karthik Chekuri      | Karthik      | Chekuri         | 1992-07-15 | 634-21-8805 | CA-K3344112  | 2200 Wilshire Blvd   | -          | -     | 90057 | -            | CA | USA   | ["fullname_ssn", "lastname_dob", "unique_iden |  0.222 |   32.48 | YES
+  3 | d99e7337 | Karthik Chekuri      | Karthik      | Chekuri         | 1992-07-15 | 634-21-8805 | -            | -                    | -          | -     | -     | -            | CA | -     | ["fullname_ssn", "lastname_dob"]              |  0.355 |   23.26 | YES
+  3 | dca3e904 | Karthik Chekuri      | Karthik      | Chekuri         | 1992-07-15 | 634-21-8805 | CA-K3344112  | 2200 Wilshire Blvd   | Suite 510  | -     | 90057 | Los Angeles  | CA | USA   | ["fullname_ssn", "lastname_dob", "unique_iden |  0.255 |   25.55 | YES
+
+Showing 38 rows (customers 1-3)
+
+====================================================================================================
+  SUMMARY (all 10 customers)
+====================================================================================================
+
+--- V2 Summary ---
+  Total rows: 60, avg_conf: 0.891, no_review: 60
+  Full=60, First=60, Last=60, DOB=58, SSN=60, DL=28
+  Ad1=44, Ad2=5, Ad3=0, Zip=44, City=44, St=54, Cty=36
+
+--- V3 Summary ---
+  Total rows: 121, avg_conf: 0.284, no_review: 1
+  Full=121, First=120, Last=100, DOB=110, SSN=121, DL=40
+  Ad1=56, Ad2=12, Ad3=0, Zip=56, City=57, St=107, Cty=64

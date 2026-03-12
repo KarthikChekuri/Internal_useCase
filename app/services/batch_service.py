@@ -699,6 +699,7 @@ def _process_customer(
                     leak_result=leak_result,
                     overall_confidence=overall_confidence,
                     needs_review=needs_review,
+                    customer=customer,
                 )
 
         # Step 5: Mark as 'complete'
@@ -746,6 +747,7 @@ def _persist_result(
     leak_result: Any,
     overall_confidence: float,
     needs_review: bool = False,
+    customer: Any = None,
 ) -> None:
     """Insert a row into [Search].[results] for a (customer, file) pair with detected PII.
 
@@ -757,6 +759,8 @@ def _persist_result(
         leak_result: LeakDetectionResult with per-field FieldMatchResult instances.
         overall_confidence: Float confidence score for this pair.
         needs_review: Whether this result needs human review (no-anchor or disambiguation).
+        customer: MasterData row — used to populate leaked_* columns with
+            the customer's actual PII value when found.
     """
     from app.models.result import Result
 
@@ -777,6 +781,19 @@ def _persist_result(
             "snippet": field_result.snippet,
         }
 
+    # Build per-field leaked_* columns: use customer's master_data PII value when found
+    from app.models.result import PII_FIELD_TO_LEAKED_COLUMN
+    leaked_columns = {}
+    for field in ALL_PII_FIELDS:
+        col_name = PII_FIELD_TO_LEAKED_COLUMN.get(field)
+        if col_name:
+            field_result = getattr(leak_result, field)
+            if field_result.found and customer is not None:
+                val = getattr(customer, field, None)
+                leaked_columns[col_name] = str(val) if val is not None else None
+            else:
+                leaked_columns[col_name] = None
+
     row = Result(
         batch_id=batch_id,
         customer_id=customer_id,
@@ -788,6 +805,7 @@ def _persist_result(
         azure_search_score=candidate["azure_search_score"],
         needs_review=needs_review,
         searched_at=datetime.datetime.now(datetime.UTC),
+        **leaked_columns,
     )
     db.add(row)
     db.commit()

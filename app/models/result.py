@@ -29,6 +29,24 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.models.database import Base
 
 
+# Mapping from PII field name to ORM column name for leaked_* columns
+PII_FIELD_TO_LEAKED_COLUMN = {
+    "Fullname": "leaked_fullname",
+    "FirstName": "leaked_firstname",
+    "LastName": "leaked_lastname",
+    "DOB": "leaked_dob",
+    "SSN": "leaked_ssn",
+    "DriversLicense": "leaked_driverslicense",
+    "Address1": "leaked_address1",
+    "Address2": "leaked_address2",
+    "Address3": "leaked_address3",
+    "ZipCode": "leaked_zipcode",
+    "City": "leaked_city",
+    "State": "leaked_state",
+    "Country": "leaked_country",
+}
+
+
 class Result(Base):
     """[Search].[results] — one row per (customer, file) detection result."""
 
@@ -55,9 +73,24 @@ class Result(Base):
     )
 
     # --- Detection metadata ---
-    strategy_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    strategy_name: Mapped[Optional[str]] = mapped_column(Unicode(None), nullable=True)
     leaked_fields: Mapped[Optional[str]] = mapped_column(Unicode(None), nullable=True)
     match_details: Mapped[Optional[str]] = mapped_column(Unicode(None), nullable=True)
+
+    # --- Per-field leaked text (snippet found in file, NULL if not found) ---
+    leaked_fullname: Mapped[Optional[str]] = mapped_column(Unicode(None), nullable=True)
+    leaked_firstname: Mapped[Optional[str]] = mapped_column(Unicode(None), nullable=True)
+    leaked_lastname: Mapped[Optional[str]] = mapped_column(Unicode(None), nullable=True)
+    leaked_dob: Mapped[Optional[str]] = mapped_column(Unicode(None), nullable=True)
+    leaked_ssn: Mapped[Optional[str]] = mapped_column(Unicode(None), nullable=True)
+    leaked_driverslicense: Mapped[Optional[str]] = mapped_column(Unicode(None), nullable=True)
+    leaked_address1: Mapped[Optional[str]] = mapped_column(Unicode(None), nullable=True)
+    leaked_address2: Mapped[Optional[str]] = mapped_column(Unicode(None), nullable=True)
+    leaked_address3: Mapped[Optional[str]] = mapped_column(Unicode(None), nullable=True)
+    leaked_zipcode: Mapped[Optional[str]] = mapped_column(Unicode(None), nullable=True)
+    leaked_city: Mapped[Optional[str]] = mapped_column(Unicode(None), nullable=True)
+    leaked_state: Mapped[Optional[str]] = mapped_column(Unicode(None), nullable=True)
+    leaked_country: Mapped[Optional[str]] = mapped_column(Unicode(None), nullable=True)
 
     # --- Scoring ---
     overall_confidence: Mapped[Optional[float]] = mapped_column(Float, nullable=True)

@@ -801,5 +801,9 @@ class TestResultModel:
             "strategy_name", "leaked_fields", "match_details",
             "overall_confidence", "azure_search_score",
             "needs_review", "searched_at",
+            "leaked_fullname", "leaked_firstname", "leaked_lastname",
+            "leaked_dob", "leaked_ssn", "leaked_driverslicense",
+            "leaked_address1", "leaked_address2", "leaked_address3",
+            "leaked_zipcode", "leaked_city", "leaked_state", "leaked_country",
         }
         assert expected == col_names

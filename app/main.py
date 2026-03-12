@@ -13,6 +13,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers.batch import router as batch_router
+from app.routers.batch_v3 import router as batch_v3_router
 from app.routers.indexing import router as indexing_router
 
 logger = logging.getLogger(__name__)
@@ -49,3 +50,6 @@ app.add_middleware(
 # Register routers — V2: batch replaces V1 search endpoint
 app.include_router(batch_router)
 app.include_router(indexing_router)
+
+# Register V3 router — Azure-only pipeline
+app.include_router(batch_v3_router, prefix="/v3", tags=["V3"])

@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     AZURE_SEARCH_ENDPOINT: str
     AZURE_SEARCH_KEY: str
     AZURE_SEARCH_INDEX: str = "breach-file-index"
+    AZURE_SEARCH_INDEX_V3: str = "breach-file-index-v3"
     STRATEGIES_FILE: str = "strategies.yaml"
 
 

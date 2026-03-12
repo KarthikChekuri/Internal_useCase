@@ -66,7 +66,10 @@ breach-search/
 
 ## Specs
 
-All feature requirements are in `openspec/changes/breach-pii-search/specs/`. Read the relevant spec before starting any phase. Each Given/When/Then scenario is a test case.
+- **V2 specs:** `openspec/changes/breach-pii-search/specs/` — V2 batch processing with Python regex/fuzzy detection
+- **V3 specs:** `openspec/changes/v3-azure-only/specs/` — V3 Azure-only alternate route (indexing-v3, search-v3, batch-v3)
+
+Read the relevant spec before starting any phase. Each Given/When/Then scenario is a test case.
 
 ## Orchestrator
 
@@ -76,6 +79,7 @@ The orchestrator automates agent launch. It reads the roadmap, resolves dependen
 bash orchestrator.sh status                    # Show work board
 bash orchestrator.sh plan                      # Output JSON manifest with agent prompts
 bash orchestrator.sh complete "Phase V2-X.Y"   # Mark done, unblock dependents
+bash orchestrator.sh complete "Phase V3-X.Y"   # Also supports V3 phases
 ```
 
 ### Launch workflow (when user says "orchestrate" or "launch")

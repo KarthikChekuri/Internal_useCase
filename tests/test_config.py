@@ -176,3 +176,44 @@ class TestSettingsLoadsFromEnvironment:
         assert callable(get_settings)
         settings = get_settings()
         assert isinstance(settings, Settings)
+
+
+# ---------------------------------------------------------------------------
+# V3 Config tests
+# ---------------------------------------------------------------------------
+
+class TestSettingsV3:
+    """Settings class must expose V3 configuration fields."""
+
+    def test_settings_has_azure_search_index_v3_field(self, monkeypatch):
+        """Settings must have an AZURE_SEARCH_INDEX_V3 field of type str."""
+        _set_required(monkeypatch)
+        from app.config import Settings
+        settings = Settings()
+        assert hasattr(settings, "AZURE_SEARCH_INDEX_V3")
+        assert isinstance(settings.AZURE_SEARCH_INDEX_V3, str)
+
+    def test_azure_search_index_v3_defaults_to_breach_file_index_v3(self, monkeypatch):
+        """AZURE_SEARCH_INDEX_V3 must default to 'breach-file-index-v3' when not set."""
+        _set_required(monkeypatch)
+        monkeypatch.delenv("AZURE_SEARCH_INDEX_V3", raising=False)
+        from app.config import Settings
+        settings = Settings()
+        assert settings.AZURE_SEARCH_INDEX_V3 == "breach-file-index-v3"
+
+    def test_azure_search_index_v3_can_be_overridden(self, monkeypatch):
+        """AZURE_SEARCH_INDEX_V3 default can be overridden by environment variable."""
+        _set_required(monkeypatch)
+        monkeypatch.setenv("AZURE_SEARCH_INDEX_V3", "custom-v3-index")
+        from app.config import Settings
+        settings = Settings()
+        assert settings.AZURE_SEARCH_INDEX_V3 == "custom-v3-index"
+
+    def test_v2_and_v3_indexes_are_different_defaults(self, monkeypatch):
+        """V2 and V3 index names must have different default values."""
+        _set_required(monkeypatch)
+        monkeypatch.delenv("AZURE_SEARCH_INDEX", raising=False)
+        monkeypatch.delenv("AZURE_SEARCH_INDEX_V3", raising=False)
+        from app.config import Settings
+        settings = Settings()
+        assert settings.AZURE_SEARCH_INDEX != settings.AZURE_SEARCH_INDEX_V3

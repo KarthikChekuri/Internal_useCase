@@ -3,11 +3,11 @@ Pay Period: 2024-Q1 (January–March)
 Entity: Orion Manufacturing Corp.
 Emp ID   Name                      SSN             Gross Pay    Net Pay State
 --------------------------------------------------------------------------------
-6        Priya Patel               348567712      $22,344.00 $16,087.00 IL  
-7        J. Kim                    901-24-5567    $21,143.00 $15,222.00 WA  
-8        Linda Thornberry          677093381      $21,312.00 $15,344.00 OH  
-9        Carlos Reyes-Morales      556-77-2290    $23,587.00 $16,982.00 AZ  
-10       Susan Whitfield           143629908      $21,908.00 $15,773.00 GA  
+6        Priya Patel               348567712      $21,462.00 $15,452.00 IL  
+7        J. Kim                    901-24-5567    $25,728.00 $18,524.00 WA  
+8        Linda Thornberry          677093381      $21,713.00 $15,633.00 OH  
+9        Carlos Reyes-Morales      556-77-2290    $22,449.00 $16,163.00 AZ  
+10       Susan Whitfield           143629908      $22,309.00 $16,062.00 GA  
 --------------------------------------------------------------------------------
 Payroll Administrator: ____________________
 Approval Date: ____________________________

@@ -345,7 +345,7 @@ Depends on V2 Batch 4.
 
 ---
 
-## Backlog
+## V2 Backlog
 
 - [ ] File chunking support for production files exceeding 32KB
 - [ ] Nickname detection and initial-pattern matching
@@ -358,3 +358,274 @@ Depends on V2 Batch 4.
 - [ ] Image/video file processing
 - [ ] UI/frontend for search results
 - [ ] Production master_data data source integration
+
+---
+
+## V3: Azure AI Search Only (Alternate Route)
+
+> V3 is an alternate approach that uses ONLY Azure AI Search capabilities -- no Python regex, no rapidfuzz, no disk reads at search time. It runs alongside V2 in the same app so results can be compared on the same data. V3 adds new files only -- no existing V2 files are modified.
+>
+> Key architectural differences from V2:
+> - Per-field Lucene queries (one per PII field) instead of multi-strategy broad search
+> - Azure AI Search hit highlighting for snippets instead of Python context windows
+> - PII Detection API enrichment during indexing for metadata pre-filtering
+> - Confidence from normalized `@search.score` instead of match-method tiers
+> - No disk reads, no regex, no rapidfuzz at search time
+
+---
+
+## V3 Batch 1 -- Foundation: Config, Schemas, Index Script
+
+All three phases have zero dependencies on each other. Maximum parallelization.
+
+### Phase V3-1.1: V3 Config Setting
+- **Status:** :white_check_mark: Complete
+- **Depends On:** None
+- **Tasks:**
+  - [ ] Write test: verify `Settings` has `AZURE_SEARCH_INDEX_V3` field with default `breach-file-index-v3`. Test in `tests/test_config.py` (append to existing)
+  - [ ] Add `AZURE_SEARCH_INDEX_V3: str = "breach-file-index-v3"` to `Settings` class in `app/config.py`
+  - [ ] Write test: verify `get_search_client_v3()` returns a `SearchClient` pointing to the V3 index name. Test in `tests/test_dependencies.py` (append to existing)
+  - [ ] Add `get_search_client_v3()` to `app/dependencies.py` -- same as `get_search_client()` but uses `AZURE_SEARCH_INDEX_V3`
+  - [ ] Add `AZURE_SEARCH_INDEX_V3=breach-file-index-v3` to `.env.example`
+- **V1 Files Affected:** `app/config.py`, `app/dependencies.py`
+- **New Files:** `tests/test_config.py`, `tests/test_dependencies.py`
+- **Spec Reference:** `openspec/changes/v3-azure-only/specs/indexing-v3/spec.md`
+- **Effort:** S
+- **Done When:** `Settings().AZURE_SEARCH_INDEX_V3` returns `"breach-file-index-v3"`. `get_search_client_v3()` returns a SearchClient configured for the V3 index. All tests pass.
+
+---
+
+### Phase V3-1.2: V3 Pydantic Schemas
+- **Status:** :white_check_mark: Complete
+- **Depends On:** None
+- **Tasks:**
+  - [ ] Write tests first (TDD) in `tests/schemas/test_search_v3.py`:
+    - Test `V3FieldMatch` serialization: `field_name`, `found` (bool), `score` (float, optional), `snippet` (str, optional) -- test found=true with score+snippet, found=true with null snippet (fuzzy highlight gap), found=false
+    - Test `V3DocumentResult` serialization: `md5`, `file_path`, `fields_found` (list[str]), `overall_confidence` (float), `azure_search_score` (float), `needs_review` (bool), `match_details` (dict[str, V3FieldMatch])
+    - Test `V3BatchRunResponse` serialization: `batch_id` (UUID str), `status`, `total_customers` (int), `method` = `"v3_azure_only"`
+    - Test `V3BatchStatusResponse`: same as V2 `BatchStatusResponse` but with `method` field
+    - Test `V3BatchResultResponse`: `batch_id`, `customer_id`, `md5`, `strategy_name` = `"v3_azure_only"`, `leaked_fields` (list[str]), `match_details` (dict), `overall_confidence`, `azure_search_score`, `needs_review`, `searched_at`
+    - Test optional fields default to None, test list fields default to empty
+  - [ ] Create `app/schemas/search_v3.py` with: `V3FieldMatch`, `V3DocumentResult`, `V3BatchRunResponse`, `V3BatchStatusResponse`, `V3BatchResultResponse`
+- **V1 Files Affected:** None
+- **New Files:** `app/schemas/search_v3.py`, `tests/schemas/test_search_v3.py`
+- **Spec Reference:** `openspec/changes/v3-azure-only/specs/schemas-v3/spec.md`, `openspec/changes/v3-azure-only/specs/search-v3/spec.md`, `openspec/changes/v3-azure-only/specs/batch-v3/spec.md`
+- **Effort:** S
+- **Done When:** All V3 Pydantic models serialize and validate correctly. `V3FieldMatch` handles found/not-found with optional score/snippet. `V3BatchRunResponse` has `method="v3_azure_only"`. All tests pass.
+
+---
+
+### Phase V3-1.3: V3 Search Index Script
+- **Status:** :white_check_mark: Complete
+- **Depends On:** None
+- **Tasks:**
+  - [ ] Write tests first (TDD) in `tests/test_create_search_index_v3.py`:
+    - Test `build_v3_index_definition()` returns a `SearchIndex` with name `breach-file-index-v3`
+    - Test index has all V2 content fields: `content` (standard.lucene), `content_phonetic` (phonetic_analyzer), `content_lowercase` (name_analyzer)
+    - Test index has V2 metadata fields: `id` (key), `md5` (filterable), `file_path`
+    - Test index has V3 PII metadata fields: `has_ssn` (Boolean, filterable), `has_name` (Boolean, filterable), `has_dob` (Boolean, filterable), `has_address` (Boolean, filterable), `has_phone` (Boolean, filterable)
+    - Test index has `pii_types` (Collection(String), filterable) and `pii_entity_count` (Int32, filterable)
+    - Test index includes `phonetic_analyzer` and `name_analyzer` with same config as V2
+    - Test index includes `pii_boost` scoring profile with weights: content=3.0, content_lowercase=2.0, content_phonetic=1.5
+  - [ ] Create `scripts/create_search_index_v3.py` with `build_v3_index_definition(index_name)` and `create_v3_index()` -- extends V2 index definition with PII metadata fields
+- **V1 Files Affected:** None
+- **New Files:** `scripts/create_search_index_v3.py`, `tests/test_create_search_index_v3.py`
+- **Spec Reference:** `openspec/changes/v3-azure-only/specs/indexing-v3/spec.md`
+- **Effort:** S
+- **Done When:** `build_v3_index_definition()` produces a SearchIndex with all V2 content/analyzer/scoring fields plus 7 PII metadata fields (5 Boolean filterable, 1 Collection(String) filterable, 1 Int32 filterable). All tests pass.
+
+---
+
+## V3 Batch 2 -- Services: Indexing and Search Query Building
+
+Depends on V3 Batch 1 (config must exist). Two independent phases.
+
+### Phase V3-2.1: V3 Indexing Service (with PII Detection)
+- **Status:** :white_check_mark: Complete
+- **Depends On:** Phase V3-1.1, Phase V3-1.3
+- **Tasks:**
+  - [ ] Write tests first (TDD) in `tests/services/test_indexing_service_v3.py`:
+    - Test `_call_pii_detection(text)`: mock Azure AI Language API response with SSN+Person+DateTime entities, verify returns parsed entity list
+    - Test `_map_pii_entities(entities)`: verify entity type "USSocialSecurityNumber" sets `has_ssn=True`, "Person" sets `has_name=True`, "DateTime" sets `has_dob=True`, "Address" sets `has_address=True`, "PhoneNumber" sets `has_phone=True`; verify `pii_types` is distinct list, `pii_entity_count` is total count
+    - Test `_map_pii_entities` with no entities: all `has_*`=False, `pii_types`=[], `pii_entity_count`=0
+    - Test `_build_v3_document(md5, file_path, content, pii_metadata)`: verify document dict has all V2 fields (id, md5, file_path, content, content_phonetic, content_lowercase) plus V3 PII metadata fields
+    - Test PII Detection API fallback: when API call raises exception, returns default metadata (all false/empty), logs warning, indexing continues
+    - Test `index_all_files_v3()`: mock DLU query, mock text extraction, mock PII detection, mock search index client upload -- verify correct number of documents uploaded with PII metadata
+    - Test file extension filtering: only .txt, .csv, .xls, .xlsx are indexed (same as V2)
+  - [ ] Create `app/services/indexing_service_v3.py` with:
+    - `_call_pii_detection(text: str) -> list[dict]` -- calls Azure AI Language PII Detection API, returns list of entity dicts
+    - `_map_pii_entities(entities: list[dict]) -> dict` -- maps entity types to `has_*` booleans, `pii_types` list, `pii_entity_count`
+    - `_build_v3_document(md5, file_path, content, pii_metadata) -> dict` -- builds document dict for V3 index
+    - `index_all_files_v3(db, search_client, language_client=None) -> IndexResponse` -- main entry point, queries DLU, extracts text, calls PII detection, uploads to V3 index
+  - [ ] Create `scripts/run_indexing_v3.py` -- standalone CLI script that calls `index_all_files_v3()`
+- **V1 Files Affected:** None
+- **New Files:** `app/services/indexing_service_v3.py`, `scripts/run_indexing_v3.py`, `tests/services/test_indexing_service_v3.py`
+- **Spec Reference:** `openspec/changes/v3-azure-only/specs/indexing-v3/spec.md`
+- **Effort:** M
+- **Done When:** `index_all_files_v3()` reads DLU records, extracts text (reusing V2), calls PII Detection API per document, maps entities to metadata, builds V3 documents, and uploads to `breach-file-index-v3`. PII Detection failures are gracefully handled (defaults + warning). All tests pass.
+
+---
+
+### Phase V3-2.2: V3 Search Query Builder and Field Execution
+- **Status:** :white_check_mark: Complete
+- **Depends On:** Phase V3-1.1
+- **Tasks:**
+  - [ ] Write tests first (TDD) in `tests/services/test_search_service_v3.py`:
+    - Test `build_field_query("SSN", "343-43-4343")` returns `'"343-43-4343" OR "343434343"'`
+    - Test `build_field_query("SSN", "123-45-6789")` returns `'"123-45-6789" OR "123456789"'`
+    - Test `build_field_query("Fullname", "Karthik Chekuri")` returns `'Karthik~1 Chekuri~1'`
+    - Test `build_field_query("Fullname", "Robert O'Brien")` returns properly escaped query with `~1` fuzzy
+    - Test `build_field_query("FirstName", "Karthik")` returns `'Karthik~1'`
+    - Test `build_field_query("LastName", "Chekuri")` returns `'Chekuri~1'`
+    - Test `build_field_query("DOB", "1992-07-15")` returns `'"07/15/1992" OR "1992-07-15" OR "15/07/1992" OR "15.07.1992"'`
+    - Test `build_field_query("ZipCode", "77001")` returns `'"77001"'`
+    - Test `build_field_query("DriversLicense", "TX12345678")` returns `'"TX12345678"'`
+    - Test `build_field_query("State", "TX")` returns `'"TX"'`
+    - Test `build_field_query("City", "Houston")` returns `'"Houston"'`
+    - Test `build_field_query("City", "New York")` returns `'"New York"'`
+    - Test `build_field_query("Address1", "123 Main Street")` returns `'"123 Main Street"'`
+    - Test `build_field_query("Country", "United States")` returns `'"United States"'`
+    - Test `build_field_query` with null value returns None (skip field)
+    - Test `get_search_mode("SSN")` returns `"all"`, `get_search_mode("Fullname")` returns `"any"`
+    - Test `get_metadata_filter("SSN")` returns `"has_ssn eq true"`, `get_metadata_filter("Fullname")` returns `"has_name eq true"`, `get_metadata_filter("DOB")` returns `"has_dob eq true"`, `get_metadata_filter("Address1")` returns `"has_address eq true"`, `get_metadata_filter("City")` returns None
+    - Test `execute_field_query()`: mock SearchClient, verify called with correct params (query_type="full", search_fields, scoring_profile, highlight_fields, highlight_pre_tag="[[MATCH]]", highlight_post_tag="[[/MATCH]]", filter, top=100), verify returns list of (md5, score, snippet) tuples
+    - Test `execute_field_query()` with empty results returns empty list
+    - Test `execute_field_query()` with results but no highlights: snippet is None
+  - [ ] Create `app/services/search_service_v3.py` with:
+    - `build_field_query(field_name: str, field_value: str | None) -> str | None` -- constructs Lucene query per field type
+    - `get_search_mode(field_name: str) -> str` -- returns "all" or "any" per field type
+    - `get_metadata_filter(field_name: str) -> str | None` -- returns filter expression or None
+    - `execute_field_query(search_client, field_name, field_value) -> list[FieldQueryResult]` -- sends query to Azure AI Search with highlighting and pre-filter
+- **V1 Files Affected:** None
+- **New Files:** `app/services/search_service_v3.py`, `tests/services/test_search_service_v3.py`
+- **Spec Reference:** `openspec/changes/v3-azure-only/specs/search-v3/spec.md`
+- **Effort:** M
+- **Done When:** `build_field_query()` produces correct Lucene syntax for all 13 PII field types: SSN (dashed+undashed), DOB (4 formats), names (fuzzy ~1), others (exact quoted). `get_metadata_filter()` returns correct `$filter` expressions. `execute_field_query()` calls Azure AI Search with correct params and extracts score+snippet from response. Null fields return None (skip). All tests pass.
+
+---
+
+## V3 Batch 3 -- Search Merge, Confidence, Batch Service
+
+Depends on V3 Batch 2. Two independent phases.
+
+### Phase V3-3.1: V3 Search Result Merging and Confidence
+- **Status:** :white_check_mark: Complete
+- **Depends On:** Phase V3-2.2
+- **Tasks:**
+  - [ ] Write tests first (TDD), appending to `tests/services/test_search_service_v3.py`:
+    - Test `search_customer_v3(search_client, customer)`: mock customer with SSN+Fullname+DOB, mock `execute_field_query` for each field, verify returns merged per-document results
+    - Test `search_customer_v3` with customer where all PII is null: returns empty results
+    - Test `search_customer_v3` skips null fields (no query sent for null DriversLicense)
+    - Test `merge_field_results(field_results_dict)`: given SSN results for [doc_A(12.5), doc_B(10.0)] and Name results for [doc_A(8.3), doc_C(6.1)], verify merged output has doc_A with both SSN+Name, doc_B with SSN only, doc_C with Name only
+    - Test `merge_field_results` with single field: one doc appears with one field found
+    - Test `merge_field_results` with empty results: returns empty dict
+    - Test `compute_confidence_v3(doc_result, max_score)`:
+      - SSN(12.5) + Name(8.3) + DOB(9.0), max=12.5: verify per-field normalization and weighted average (0.35*1.0 + 0.30*0.664 + 0.20*0.72 + 0.15*0.0 = 0.693)
+      - SSN only (10.0), max=10.0: verify (0.35*1.0 + 0.30*0.0 + 0.20*0.0 + 0.15*0.0 = 0.35), needs_review=True (below 0.5)
+      - FirstName only (6.0), no SSN, no LastName, max=6.0: verify needs_review=True regardless of score
+    - Test `compute_confidence_v3` Name category: takes max of Fullname, FirstName, LastName confidence
+    - Test `compute_confidence_v3` Other category: takes average of found non-name/non-SSN field confidences
+  - [ ] Add to `app/services/search_service_v3.py`:
+    - `search_customer_v3(search_client, customer: MasterData) -> list[V3DocumentResult]` -- iterates non-null PII fields, calls `execute_field_query` per field, merges results, computes confidence
+    - `merge_field_results(field_results: dict[str, list[FieldQueryResult]]) -> dict[str, dict]` -- merges per-field query results into per-document aggregation
+    - `compute_confidence_v3(doc_fields: dict, max_score: float) -> tuple[float, bool]` -- computes overall confidence and needs_review flag
+- **V1 Files Affected:** None
+- **New Files:** None (extending `app/services/search_service_v3.py` and `tests/services/test_search_service_v3.py`)
+- **Spec Reference:** `openspec/changes/v3-azure-only/specs/search-v3/spec.md`
+- **Effort:** M
+- **Done When:** `search_customer_v3()` runs per-field queries for all non-null PII fields, merges results per document, and computes V3 confidence. `merge_field_results()` correctly aggregates multi-field hits per document. `compute_confidence_v3()` implements the weighted formula (SSN: 0.35, Name: 0.30, Others: 0.20, Doc: 0.15) with proper normalization and needs_review logic. All tests pass.
+
+---
+
+### Phase V3-3.2: V3 Batch Service
+- **Status:** :white_check_mark: Complete
+- **Depends On:** Phase V3-3.1, Phase V3-1.2
+- **Tasks:**
+  - [ ] Write tests first (TDD) in `tests/services/test_batch_service_v3.py`:
+    - Test `start_batch_v3()`: verify batch_runs row inserted with `strategy_set='["v3_azure_only"]'`, customer_status rows initialized as "pending"
+    - Test per-customer processing: mock `search_customer_v3` returning results, verify customer status transitions (pending -> searching -> complete), verify `candidates_found` and `leaks_confirmed` updated
+    - Test result persistence: verify rows inserted into `[Search].[results]` with `strategy_name="v3_azure_only"`, correct `leaked_fields`, `match_details`, `overall_confidence`, `azure_search_score`, `needs_review`
+    - Test customer with no results: status = "complete", leaks_confirmed = 0, no result rows inserted
+    - Test customer with all-null PII: skipped with status "complete", leaks_confirmed = 0
+    - Test error handling: customer processing raises exception, status = "failed" with error_message, next customer continues
+    - Test batch completion: batch_runs status updated to "completed", completed_at set
+    - Test `[V3]` prefix in console logging: capture log output, verify `[V3]` prefix in batch start, customer progress, and batch complete messages
+  - [ ] Create `app/services/batch_service_v3.py` with:
+    - `start_batch_v3(db, search_client) -> str` -- creates batch run, iterates customers, calls `search_customer_v3`, persists results, updates status
+    - `_process_customer_v3(db, search_client, customer, batch_id) -> None` -- per-customer logic
+    - Console logging with `[V3]` prefix at batch start, per-customer progress, batch completion
+- **V1 Files Affected:** None
+- **New Files:** `app/services/batch_service_v3.py`, `tests/services/test_batch_service_v3.py`
+- **Spec Reference:** `openspec/changes/v3-azure-only/specs/batch-v3/spec.md`
+- **Effort:** M
+- **Done When:** `start_batch_v3()` creates a batch with `strategy_set=["v3_azure_only"]`, processes all customers sequentially, runs `search_customer_v3` per customer (no disk reads, no regex), persists results with `strategy_name="v3_azure_only"`, updates customer status at each transition, handles errors per customer, logs with `[V3]` prefix. All tests pass.
+
+---
+
+## V3 Batch 4 -- Routes and App Wiring
+
+Depends on V3 Batch 3.
+
+### Phase V3-4.1: V3 FastAPI Routes
+- **Status:** :white_check_mark: Complete
+- **Depends On:** Phase V3-3.2, Phase V3-1.2, Phase V3-1.1
+- **Tasks:**
+  - [ ] Write tests first (TDD) in `tests/routers/test_batch_v3.py`:
+    - Test `POST /v3/index/all`: mock indexing_service_v3, verify returns IndexResponse, verify calls `index_all_files_v3()`
+    - Test `POST /v3/batch/run`: mock batch_service_v3, verify returns `V3BatchRunResponse` with `method="v3_azure_only"`, verify triggers `start_batch_v3()` via BackgroundTasks
+    - Test `GET /v3/batch/{batch_id}/status`: mock DB query, verify returns batch status in `V3BatchStatusResponse` format
+    - Test `GET /v3/batch/{batch_id}/results`: mock DB query, verify returns list of `V3BatchResultResponse` with `strategy_name="v3_azure_only"`
+    - Test `GET /v3/batch/{batch_id}/status` with invalid batch_id: returns 404
+    - Test V3 routes do not conflict with V2 routes (both registered)
+  - [ ] Create `app/routers/batch_v3.py` with:
+    - `POST /v3/index/all` -- calls `index_all_files_v3()`, returns IndexResponse
+    - `POST /v3/batch/run` -- calls `start_batch_v3()` via BackgroundTasks, returns V3BatchRunResponse
+    - `GET /v3/batch/{batch_id}/status` -- queries batch_runs + customer_status, returns V3BatchStatusResponse
+    - `GET /v3/batch/{batch_id}/results` -- queries results where strategy_name="v3_azure_only", returns list[V3BatchResultResponse]
+  - [ ] Write test in `tests/test_main_v2.py` (append): verify V3 router registered at `/v3` prefix alongside V2 routes
+  - [ ] Update `app/main.py`: import and register `batch_v3.router` with prefix `/v3`
+- **V1 Files Affected:** None
+- **New Files:** `app/routers/batch_v3.py`, `tests/routers/test_batch_v3.py`
+- **Spec Reference:** `openspec/changes/v3-azure-only/specs/batch-v3/spec.md`
+- **Effort:** M
+- **Done When:** All 4 V3 endpoints are registered and functional: `POST /v3/index/all`, `POST /v3/batch/run`, `GET /v3/batch/{id}/status`, `GET /v3/batch/{id}/results`. V3 routes coexist with V2 routes. Responses use V3 schema models. All tests pass.
+
+---
+
+## V3 Batch 5 -- Integration and Comparison
+
+Depends on V3 Batch 4.
+
+### Phase V3-5.1: V3 Integration Tests and Comparison Script
+- **Status:** :white_check_mark: Complete
+- **Depends On:** Phase V3-4.1
+- **Tasks:**
+  - [ ] Write integration tests in `tests/test_v3_integration.py`:
+    - Test V3 indexing: index simulated data via `index_all_files_v3()`, verify documents uploaded with PII metadata (has_ssn, has_name, etc.)
+    - Test V3 batch: run `start_batch_v3()` on simulated data with mock Azure Search, verify results in `[Search].[results]` with `strategy_name="v3_azure_only"`
+    - Test per-field detection: verify correct fields found for customers with known PII in files (SSN match, name match, DOB match)
+    - Test V3 no-match customer: customer with no PII in any file -> status "complete", 0 leaks
+    - Test V3 confidence scoring: verify confidence values match expected formula output
+    - Test V3 needs_review flag: verify flag set when confidence < 0.5, or FirstName-only match without SSN/LastName
+    - Test V3 snippet extraction: verify snippets contain `[[MATCH]]` tags for exact matches, null for fuzzy
+  - [ ] Create `scripts/compare_v2_v3.py` -- comparison script that:
+    - Queries `[Search].[results]` for both V2 and V3 batch results
+    - Outputs per-customer comparison: files found by both, V2-only, V3-only
+    - Shows per-field match differences (V2 leaked_fields vs V3 leaked_fields)
+    - Highlights confidence score divergence
+    - Outputs to console table format
+  - [ ] Write test for comparison script in `tests/test_compare_v2_v3.py`: mock DB results, verify comparison output format
+- **V1 Files Affected:** None
+- **New Files:** `tests/test_v3_integration.py`, `scripts/compare_v2_v3.py`, `tests/test_compare_v2_v3.py`
+- **Spec Reference:** `openspec/changes/v3-azure-only/specs/indexing-v3/spec.md`, `openspec/changes/v3-azure-only/specs/search-v3/spec.md`, `openspec/changes/v3-azure-only/specs/batch-v3/spec.md`
+- **Effort:** M
+- **Done When:** Integration tests verify the full V3 pipeline: index with PII metadata -> per-field search -> merge -> confidence -> persist with `strategy_name="v3_azure_only"`. Comparison script queries both V2 and V3 results and outputs a side-by-side table. All tests pass.
+
+---
+
+## V3 Backlog
+
+- [ ] V3 batch resumability (skip completed, retry failed customers)
+- [ ] PII Detection toggle (config flag to enable/disable, reduces Azure billing)
+- [ ] Configurable `minimumPrecision` for PII Detection skill (default 0.5)
+- [ ] V3 comparison endpoint -- API endpoint returning V2 vs V3 side-by-side results

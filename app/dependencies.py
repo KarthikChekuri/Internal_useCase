@@ -3,6 +3,7 @@
 Provides:
 - get_db(): yields a SQLAlchemy session, closes on completion
 - get_search_client(): returns an Azure SearchClient instance
+- get_search_client_v3(): returns an Azure SearchClient instance for the V3 index
 - get_settings(): returns a cached Settings instance
 """
 
@@ -67,6 +68,28 @@ def get_search_client() -> Any:
     client = SearchClient(
         endpoint=settings.AZURE_SEARCH_ENDPOINT,
         index_name=settings.AZURE_SEARCH_INDEX,
+        credential=credential,
+    )
+    return client
+
+
+def get_search_client_v3() -> Any:
+    """Return an Azure AI Search client configured for the V3 index.
+
+    Internally calls get_settings() to load configuration.
+    Uses AZURE_SEARCH_INDEX_V3 instead of AZURE_SEARCH_INDEX so that V2
+    and V3 pipeline stages point at separate indexes.
+    Return type is Any to prevent FastAPI from treating SearchClient
+    as a body parameter.
+
+    Returns:
+        Configured SearchClient instance pointing at the V3 index.
+    """
+    settings = get_settings()
+    credential = AzureKeyCredential(settings.AZURE_SEARCH_KEY)
+    client = SearchClient(
+        endpoint=settings.AZURE_SEARCH_ENDPOINT,
+        index_name=settings.AZURE_SEARCH_INDEX_V3,
         credential=credential,
     )
     return client
