@@ -5,9 +5,9 @@ services:
     image: mcr.microsoft.com/mssql/server:2022-latest
     environment:
       ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: ${DB_PASSWORD:-YourStrong!Passw0rd}
+      MSSQL_SA_PASSWORD: "BreachSearch2024!"
     ports:
-      - "1433:1433"
+      - "1434:1433"
 
   app:
     build: .

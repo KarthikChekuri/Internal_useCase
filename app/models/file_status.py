@@ -23,7 +23,7 @@ class FileStatus(Base):
     __table_args__ = {"schema": "Index"}
 
     md5: Mapped[str] = mapped_column(
-        String(32),
+        Unicode(32),
         ForeignKey("DLU.datalakeuniverse.MD5"),
         primary_key=True,
     )
