@@ -3,11 +3,11 @@ Pay Period: 2024-Q1 (January–March)
 Entity: Orion Manufacturing Corp.
 Emp ID   Name                      SSN             Gross Pay    Net Pay State
 --------------------------------------------------------------------------------
-1        Robert O'Brien            523-45-7891    $21,713.00 $15,633.00 MA  
-2        J. Smith-Jones            412673309      $24,447.00 $17,601.00 TX  
-3        Karthik Chekuri           634-21-8805    $22,751.00 $16,380.00 CA  
-4        Maria Rodriguez           291884451      $21,746.00 $15,657.00 FL  
-5        Ahmed Hassan              785-33-6624    $23,306.00 $16,780.00 NY  
+1        Robert O'Brien            523-45-7891    $21,222.00 $15,279.00 MA  
+2        J. Smith-Jones            412673309      $22,174.00 $15,965.00 TX  
+3        Karthik Chekuri           634-21-8805    $25,848.00 $18,610.00 CA  
+4        Maria Rodriguez           291884451      $23,446.00 $16,881.00 FL  
+5        Ahmed Hassan              785-33-6624    $23,290.00 $16,768.00 NY  
 --------------------------------------------------------------------------------
 Payroll Administrator: ____________________
 Approval Date: ____________________________

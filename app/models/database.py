@@ -11,8 +11,6 @@ Do NOT import pyodbc directly here — the import is lazy through SQLAlchemy.
 from __future__ import annotations
 
 import os
-from collections.abc import Generator
-from typing import Any
 
 from sqlalchemy import create_engine, Engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
@@ -48,21 +46,3 @@ def get_session_factory(engine: Engine | None = None) -> sessionmaker[Session]:
     if engine is None:
         engine = get_engine()
     return sessionmaker(bind=engine, autocommit=False, autoflush=False)
-
-
-def get_db(engine: Engine | None = None) -> Generator[Session, Any, None]:
-    """
-    FastAPI dependency that yields a database session and closes it afterwards.
-
-    Usage::
-
-        @router.get("/")
-        def endpoint(db: Session = Depends(get_db)):
-            ...
-    """
-    factory = get_session_factory(engine)
-    db = factory()
-    try:
-        yield db
-    finally:
-        db.close()

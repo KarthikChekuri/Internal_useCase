@@ -629,3 +629,205 @@ Depends on V3 Batch 4.
 - [ ] PII Detection toggle (config flag to enable/disable, reduces Azure billing)
 - [ ] Configurable `minimumPrecision` for PII Detection skill (default 0.5)
 - [ ] V3 comparison endpoint -- API endpoint returning V2 vs V3 side-by-side results
+
+---
+
+## V4: CLI + Poetry Migration
+
+> V4 replaces the FastAPI REST API with a Click CLI, adds Poetry for dependency management, Docker for portable deployment, and cleans up the API layer. All service logic (batch processing, search, leak detection, scoring) is unchanged. The CLI calls the same service layer that the API routers previously called.
+
+---
+
+## V4 Batch 1 -- Foundation: Poetry, Domain Model Relocation, Batch Query Extraction
+
+All three phases have zero dependencies on each other. Maximum parallelization.
+
+### Phase V4-1.1: Poetry Setup
+- **Status:** :white_check_mark: Complete
+- **Depends On:** None
+- **Tasks:**
+  - [ ] Create `pyproject.toml` with all runtime deps (sqlalchemy, pyodbc, rapidfuzz, azure-search-documents, openpyxl, xlrd, xlwt, pydantic-settings, python-dotenv, pyyaml, click), dev deps (pytest, pytest-mock), entry point `breach-search = "app.cli:main"`, and pytest config under `[tool.pytest.ini_options]`
+  - [ ] Delete `requirements.txt`
+  - [ ] Run `poetry install` to verify deps resolve and lock file generates
+- **V1 Files Affected:** `requirements.txt` (delete)
+- **New Files:** `pyproject.toml`
+- **Spec Reference:** `specs/packaging-deployment/spec.md`
+- **Effort:** S
+- **Done When:** `pyproject.toml` exists with all runtime and dev dependencies declared, `requirements.txt` is deleted, `poetry install` succeeds and generates `poetry.lock`. Neither `fastapi` nor `uvicorn` appear in any dependency section.
+
+---
+
+### Phase V4-1.2: Relocate Domain Model (pii.py)
+- **Status:** :white_check_mark: Complete
+- **Depends On:** None
+- **Tasks:**
+  - [ ] Move `app/schemas/pii.py` to `app/models/pii.py`
+  - [ ] Update import in `app/services/leak_detection_service.py`: change `from app.schemas.pii import FieldMatchResult` to `from app.models.pii import FieldMatchResult`
+  - [ ] Move `tests/schemas/test_pii.py` to `tests/models/test_pii.py` and update all internal imports from `app.schemas.pii` to `app.models.pii`
+  - [ ] Ensure `tests/models/__init__.py` exists
+  - [ ] Run relocated tests to verify they pass
+- **V1 Files Affected:** `app/schemas/pii.py` (move to `app/models/pii.py`), `app/services/leak_detection_service.py` (update import), `tests/schemas/test_pii.py` (move to `tests/models/test_pii.py`)
+- **New Files:** `app/models/pii.py`, `tests/models/test_pii.py`
+- **Spec Reference:** `openspec/changes/v3-cli-poetry/design.md`
+- **Effort:** S
+- **Done When:** `app/models/pii.py` contains `FieldMatchResult` and `CustomerSummary`. `app/schemas/pii.py` no longer exists. `leak_detection_service.py` imports from `app.models.pii`. All relocated tests pass. Note: `app/schemas/batch.py` also imports from `app.schemas.pii` but that file is deleted in Phase V4-3.1, so do NOT update it here.
+
+---
+
+### Phase V4-1.3: Extract Batch Query Service
+- **Status:** :white_check_mark: Complete
+- **Depends On:** None
+- **Tasks:**
+  - [ ] Write tests first (TDD) in `tests/services/test_batch_query_service.py`:
+    - Test `get_batch_status(db, batch_id)` with existing batch: returns dict with batch_id, status, started_at, completed_at, strategy_set, total_customers, completed_customers, failed_customers
+    - Test `get_batch_status(db, batch_id)` with non-existent batch: returns None
+    - Test `get_batch_status` includes correct customer counts (completed, failed)
+    - Test `get_customer_statuses(db, batch_id)` without filter: returns list of dicts with customer_id, status, candidates_found, leaks_confirmed, error_message
+    - Test `get_customer_statuses(db, batch_id, status_filter="failed")`: returns only failed customers
+    - Test `get_customer_statuses(db, "nonexistent")`: returns None
+    - Test `get_batch_results(db, batch_id)` without customer filter: returns list of result dicts
+    - Test `get_batch_results(db, batch_id, customer_id=42)`: returns only that customer's results
+    - Test `get_batch_results(db, batch_id)` with no results: returns empty list
+    - Test `get_batch_results(db, "nonexistent")`: returns None
+    - Test `list_all_batches(db)` with batches: returns list ordered by started_at descending
+    - Test `list_all_batches(db)` with no batches: returns empty list
+  - [ ] Create `app/services/batch_query_service.py` with functions extracted from `app/routers/batch.py` (lines 48-307):
+    - `get_batch_status(db, batch_id) -> dict | None`
+    - `get_customer_statuses(db, batch_id, status_filter=None) -> list[dict] | None`
+    - `get_batch_results(db, batch_id, customer_id=None) -> list[dict] | None`
+    - `list_all_batches(db) -> list[dict]`
+  - [ ] All functions accept SQLAlchemy Session, return plain dicts, zero FastAPI dependency
+  - [ ] Run batch query service tests
+- **V1 Files Affected:** `app/routers/batch.py` (source of extraction -- read only, do not modify yet)
+- **New Files:** `app/services/batch_query_service.py`, `tests/services/test_batch_query_service.py`
+- **Spec Reference:** `specs/batch-query-service/spec.md`
+- **Effort:** M
+- **Done When:** All 4 query functions exist in `app/services/batch_query_service.py`, accept SQLAlchemy Session, return plain dicts (not ORM models or Pydantic). Zero imports from `fastapi`. All 12+ test cases pass.
+
+---
+
+## V4 Batch 2 -- CLI Entry Point
+
+Depends on all of V4 Batch 1.
+
+### Phase V4-2.1: Create CLI Entry Point
+- **Status:** :white_check_mark: Complete
+- **Depends On:** Phase V4-1.1, Phase V4-1.2, Phase V4-1.3
+- **Tasks:**
+  - [ ] Write tests first (TDD) in `tests/test_cli.py` using Click `CliRunner`:
+    - Test `breach-search --help` displays all subcommands (generate, seed, index, run, status, compare)
+    - Test `breach-search --verbose run` sets root logger to DEBUG
+    - Test `generate` command calls `scripts.generate_simulated_data.main()`
+    - Test `seed` command calls `scripts.seed_database.main()`
+    - Test `index` command (without --v3) calls V2 indexing pipeline
+    - Test `index --v3` command calls V3 indexing pipeline
+    - Test `run` command calls `batch_service.start_batch()` with default strategies
+    - Test `run --strategies custom.yaml` loads custom strategies file
+    - Test `run --v3` calls `batch_service_v3.start_batch_v3()`
+    - Test `run` when batch already running: prints error, exits code 1
+    - Test `status BATCH_ID` calls `get_batch_status()`, prints JSON
+    - Test `status BATCH_ID --customers` includes per-customer statuses
+    - Test `status` with non-existent batch: prints error, exits code 1
+    - Test `compare V2_ID V3_ID` calls comparison logic
+    - Test `compare` with non-existent batch: prints error, exits code 1
+    - Test DB connection failure: prints user-friendly error, exits code 1
+    - Test Azure Search auth failure: prints user-friendly error, exits code 1
+    - Test `--verbose` mode shows traceback on error
+  - [ ] Create `app/cli.py` with Click group `main` and `--verbose` flag
+  - [ ] Implement `_build_db_session()` helper (Settings -> engine -> session)
+  - [ ] Implement `_build_search_client(settings, v3=False)` helper
+  - [ ] Implement `generate` command (calls `scripts.generate_simulated_data.main()`)
+  - [ ] Implement `seed` command (calls `scripts.seed_database.main()`)
+  - [ ] Implement `index` command with `--v3` flag
+  - [ ] Implement `run` command with `--v3` and `--strategies` flags
+  - [ ] Implement `status` command with `BATCH_ID` argument and `--customers` flag (uses `batch_query_service`)
+  - [ ] Implement `compare` command with `V2_BATCH_ID` and `V3_BATCH_ID` arguments
+  - [ ] Create `app/__main__.py` with `from app.cli import main; main()` (enables `python -m app`)
+  - [ ] Run CLI tests
+- **V1 Files Affected:** None
+- **New Files:** `app/cli.py`, `app/__main__.py`, `tests/test_cli.py`
+- **Spec Reference:** `specs/cli-interface/spec.md`
+- **Effort:** M
+- **Done When:** All 6 CLI subcommands (generate, seed, index, run, status, compare) work via `breach-search <cmd>` and `python -m app <cmd>`. `--verbose` flag enables DEBUG logging. Error handling catches service exceptions and prints user-friendly messages. All 18+ test cases pass using Click CliRunner.
+
+---
+
+## V4 Batch 3 -- Delete API Layer
+
+Depends on V4 Batch 2.
+
+### Phase V4-3.1: Delete API Layer
+- **Status:** :white_check_mark: Complete
+- **Depends On:** Phase V4-2.1
+- **Tasks:**
+  - [ ] Delete `app/main.py` (FastAPI app instance)
+  - [ ] Delete `app/dependencies.py` (FastAPI DI)
+  - [ ] Delete `app/routers/__init__.py`, `app/routers/batch.py`, `app/routers/batch_v3.py`, `app/routers/indexing.py`
+  - [ ] Delete `app/schemas/__init__.py`, `app/schemas/batch.py`, `app/schemas/indexing.py`, `app/schemas/search_v3.py`
+  - [ ] Delete `run_batch.py`
+  - [ ] Delete `tests/routers/` (entire directory: `test_batch.py`, `test_batch_v3.py`, `test_indexing.py`, `test_indexing_v2.py`, `test_search.py`, `__init__.py`)
+  - [ ] Delete `tests/schemas/` (remaining files after pii.py relocation: `__init__.py`, `test_batch.py`, `test_indexing.py`, `test_search_v3.py`)
+  - [ ] Delete `tests/test_dependencies.py`, `tests/test_main.py`, `tests/test_main_v2.py`
+  - [ ] Delete `tests/test_integration.py`, `tests/test_v2_integration.py`, `tests/test_v3_integration.py`
+  - [ ] Remove `get_db()` generator from `app/models/database.py` (lines 53-68)
+  - [ ] Update `CLAUDE.md`: remove FastAPI/uvicorn from tech stack, add Click/Poetry, update project structure to remove routers/schemas directories, update orchestrator docs for V4
+  - [ ] Run full test suite (`pytest`) to verify no remaining imports of `fastapi`, `uvicorn`, or deleted modules
+- **V1 Files Affected:** `app/main.py` (delete), `app/dependencies.py` (delete), `app/routers/` (delete directory), `app/schemas/__init__.py` (delete), `app/schemas/batch.py` (delete), `app/schemas/indexing.py` (delete), `app/schemas/search_v3.py` (delete), `run_batch.py` (delete), `app/models/database.py` (remove `get_db`), `CLAUDE.md` (update), `tests/routers/` (delete directory), `tests/schemas/` (delete remaining), `tests/test_dependencies.py` (delete), `tests/test_main.py` (delete), `tests/test_main_v2.py` (delete), `tests/test_integration.py` (delete), `tests/test_v2_integration.py` (delete), `tests/test_v3_integration.py` (delete)
+- **New Files:** None
+- **Spec Reference:** `specs/cli-interface/spec.md`
+- **Effort:** M
+- **Done When:** No FastAPI-related files exist. `app/routers/` and `app/schemas/` directories are gone (except `app/models/pii.py` which was already relocated). `run_batch.py` is gone. `app/models/database.py` no longer has `get_db()`. No code imports `fastapi` or `uvicorn`. `CLAUDE.md` reflects the new CLI architecture. Full test suite passes.
+
+---
+
+## V4 Batch 4 -- Docker and Documentation
+
+Depends on V4 Batch 3.
+
+### Phase V4-4.1: Docker + README
+- **Status:** :white_check_mark: Complete
+- **Depends On:** Phase V4-3.1
+- **Tasks:**
+  - [ ] Create `Dockerfile` using `python:3.12-slim` base, install Poetry, copy project files, install dependencies (without dev), set entry point to `breach-search`
+  - [ ] Create `docker-compose.yml` with two services: `sqlserver` (mcr.microsoft.com/mssql/server:2022-latest on port 1433) and `app` (breach-search CLI with `depends_on: sqlserver`, `./data` volume mount, env_file)
+  - [ ] Create or update `.env.example` with all required environment variables: DATABASE_URL, AZURE_SEARCH_ENDPOINT, AZURE_SEARCH_KEY, AZURE_SEARCH_INDEX, AZURE_SEARCH_INDEX_V3, FILE_BASE_PATH, DB_SERVER, DB_NAME, DB_USER, DB_PASSWORD
+  - [ ] Create `README.md` with: prerequisites, Docker Quick Start (clone, cp .env, docker-compose up sqlserver, poetry install, breach-search seed/index/run), Local Quick Start (poetry install, cp .env, breach-search seed/index/run), Environment Variables table, CLI Command Reference (all 6 commands with examples), Testing instructions (poetry run pytest)
+  - [ ] Verify `docker build -t breach-search .` succeeds
+- **V1 Files Affected:** `.env.example` (update)
+- **New Files:** `Dockerfile`, `docker-compose.yml`, `README.md`
+- **Spec Reference:** `specs/packaging-deployment/spec.md`
+- **Effort:** M
+- **Done When:** `docker build -t breach-search .` succeeds. `docker-compose.yml` defines sqlserver + app services. `.env.example` lists all environment variables with placeholder values. `README.md` covers Docker setup, local setup, env vars, CLI reference, and testing. `docker run breach-search --help` shows CLI help.
+
+---
+
+## V4 Batch 5 -- Final Verification
+
+Depends on all V4 work.
+
+### Phase V4-5.1: Final Verification
+- **Status:** :white_check_mark: Complete
+- **Depends On:** Phase V4-2.1, Phase V4-3.1, Phase V4-4.1
+- **Tasks:**
+  - [ ] Run `poetry install` -- verify deps resolve and lock file is valid
+  - [ ] Run `poetry run pytest` -- verify all remaining tests pass
+  - [ ] Run `poetry run breach-search --help` -- verify CLI help text displays all 6 subcommands
+  - [ ] Grep entire codebase for imports of `fastapi`, `uvicorn`, or any deleted module -- verify zero matches
+  - [ ] Verify `requirements.txt` does not exist
+  - [ ] Verify `app/routers/` directory does not exist
+  - [ ] Verify `app/schemas/` directory does not exist (except `app/models/pii.py` is in its new location)
+  - [ ] Verify `run_batch.py` does not exist
+  - [ ] Verify Docker build succeeds
+- **V1 Files Affected:** None
+- **New Files:** None
+- **Spec Reference:** `specs/packaging-deployment/spec.md`, `specs/cli-interface/spec.md`
+- **Effort:** S
+- **Done When:** `poetry install` succeeds, `poetry run pytest` all green, `poetry run breach-search --help` works, zero imports of fastapi/uvicorn remain, all deleted files confirmed gone, Docker build succeeds.
+
+---
+
+## V4 Backlog
+
+- [ ] CLI `batch list` subcommand to list all batches (currently only `status BATCH_ID`)
+- [ ] CLI `--json` flag for machine-readable output on all commands
+- [ ] Docker health check for SQL Server readiness before app start

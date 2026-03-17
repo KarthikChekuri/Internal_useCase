@@ -24,7 +24,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from app.schemas.pii import FieldMatchResult
+from app.models.pii import FieldMatchResult
 from app.utils.fuzzy import normalize_name, sliding_window_fuzzy
 
 logger = logging.getLogger(__name__)

@@ -111,7 +111,3 @@ class TestDatabaseModule:
     def test_get_session_factory_callable(self):
         from app.models.database import get_session_factory
         assert callable(get_session_factory)
-
-    def test_get_db_callable(self):
-        from app.models.database import get_db
-        assert callable(get_db)

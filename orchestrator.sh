@@ -7,6 +7,7 @@
 #   bash orchestrator.sh plan                      # Output JSON manifest with agent prompts
 #   bash orchestrator.sh complete "Phase V2-X.Y"   # Mark phase done, unblock dependents
 #   bash orchestrator.sh complete "Phase V3-X.Y"   # Also supports V3 phases
+#   bash orchestrator.sh complete "Phase V4-X.Y"   # Also supports V4 phases
 # =============================================================================
 
 set -euo pipefail
@@ -35,6 +36,7 @@ ROADMAP_PATH = PROJECT_ROOT / "plans" / "roadmap.md"
 CLAUDE_MD_PATH = PROJECT_ROOT / "CLAUDE.md"
 SPECS_BASE_V2 = PROJECT_ROOT / "openspec" / "changes" / "breach-pii-search"
 SPECS_BASE_V3 = PROJECT_ROOT / "openspec" / "changes" / "v3-azure-only"
+SPECS_BASE_V4 = PROJECT_ROOT / "openspec" / "changes" / "v3-cli-poetry"
 
 # ANSI colors
 BOLD = "\033[1m"
@@ -109,9 +111,12 @@ def _parse_depends(text: str) -> list[str]:
     v2_full_matches = re.findall(r"Phase V2-\d+\.\d+", text)
     v3_matches = re.findall(r"(?<!Phase )V3-\d+\.\d+", text)
     v3_full_matches = re.findall(r"Phase V3-\d+\.\d+", text)
+    v4_matches = re.findall(r"(?<!Phase )V4-\d+\.\d+", text)
+    v4_full_matches = re.findall(r"Phase V4-\d+\.\d+", text)
     normalized_v2 = [f"Phase {m}" for m in v2_matches]
     normalized_v3 = [f"Phase {m}" for m in v3_matches]
-    return v1_matches + v2_full_matches + normalized_v2 + v3_full_matches + normalized_v3
+    normalized_v4 = [f"Phase {m}" for m in v4_matches]
+    return v1_matches + v2_full_matches + normalized_v2 + v3_full_matches + normalized_v3 + v4_full_matches + normalized_v4
 
 
 def parse_roadmap(roadmap_path: Path = ROADMAP_PATH) -> list[Phase]:
@@ -121,7 +126,7 @@ def parse_roadmap(roadmap_path: Path = ROADMAP_PATH) -> list[Phase]:
     current_phase: Phase | None = None
 
     for line in lines:
-        m = re.match(r"^## ((?:V[23] )?Batch \d+.*)", line)
+        m = re.match(r"^## ((?:V[234] )?Batch \d+.*)", line)
         if m:
             if current_phase and current_phase.id:
                 phases.append(current_phase)
@@ -129,7 +134,7 @@ def parse_roadmap(roadmap_path: Path = ROADMAP_PATH) -> list[Phase]:
             current_batch = m.group(1)
             continue
 
-        m = re.match(r"^### (Phase (?:V[23]-)?\d+\.\d+):\s*(.*)", line)
+        m = re.match(r"^### (Phase (?:V[234]-)?\d+\.\d+):\s*(.*)", line)
         if m:
             if current_phase and current_phase.id:
                 phases.append(current_phase)
@@ -227,6 +232,9 @@ def read_spec(ref_path: str) -> str | None:
     if full.is_file():
         return full.read_text(encoding="utf-8")
     full = SPECS_BASE_V3 / ref_path
+    if full.is_file():
+        return full.read_text(encoding="utf-8")
+    full = SPECS_BASE_V4 / ref_path
     if full.is_file():
         return full.read_text(encoding="utf-8")
     return None
@@ -422,7 +430,7 @@ def cmd_complete(phase_id: str) -> None:
     found = False
     phase_line_idx = -1
     for i, line in enumerate(lines):
-        m = re.match(r"^### (Phase (?:V[23]-)?\d+\.\d+):", line)
+        m = re.match(r"^### (Phase (?:V[234]-)?\d+\.\d+):", line)
         if m and m.group(1) == phase_id:
             phase_line_idx = i
             found = True
@@ -480,7 +488,7 @@ elif COMMAND == "status":
 elif COMMAND == "complete":
     if not EXTRA_ARGS:
         print("ERROR: missing phase_id argument", file=sys.stderr)
-        print('Usage: bash orchestrator.sh complete "Phase V2-X.Y"  (or V3-X.Y)', file=sys.stderr)
+        print('Usage: bash orchestrator.sh complete "Phase V2-X.Y"  (or V3-X.Y, V4-X.Y)', file=sys.stderr)
         sys.exit(1)
     cmd_complete(EXTRA_ARGS[0])
 else:
@@ -489,12 +497,13 @@ else:
 PYEOF
     ;;
   help|*)
-    echo "Usage: bash orchestrator.sh {status|plan|complete \"Phase V2-X.Y|V3-X.Y\"}"
+    echo "Usage: bash orchestrator.sh {status|plan|complete \"Phase V2-X.Y|V3-X.Y|V4-X.Y\"}"
     echo ""
     echo "Commands:"
     echo "  status                            Show the agent work board"
     echo "  plan                              Output JSON manifest of launchable phases with prompts"
     echo "  complete \"Phase V2-X.Y\"           Mark a V2 phase complete and unblock dependents"
     echo "  complete \"Phase V3-X.Y\"           Mark a V3 phase complete and unblock dependents"
+    echo "  complete \"Phase V4-X.Y\"           Mark a V4 phase complete and unblock dependents"
     ;;
 esac
