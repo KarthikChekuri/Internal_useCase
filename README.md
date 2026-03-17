@@ -8,6 +8,7 @@ Search breach files for customer PII using Azure AI Search and fuzzy matching.
 - [Poetry](https://python-poetry.org/docs/#installation)
 - Docker and Docker Compose (optional — for containerised SQL Server)
 - [ODBC Driver 17 for SQL Server](https://learn.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server)
+  - macOS: `brew install microsoft/mssql-release/msodbcsql17`
 
 ## Quick Start (Docker)
 
@@ -36,17 +37,17 @@ Use Docker Compose to spin up SQL Server locally, then run the CLI with Poetry.
 
 5. Seed the database with master customer data:
    ```bash
-   breach-search seed
+   poetry run breach-search seed
    ```
 
 6. Index breach files into Azure AI Search:
    ```bash
-   breach-search index
+   poetry run breach-search index
    ```
 
 7. Run a batch processing pass:
    ```bash
-   breach-search run
+   poetry run breach-search run
    ```
 
 ## Quick Start (Local)
@@ -65,17 +66,17 @@ Use this if you already have SQL Server installed locally.
 
 3. Seed the database:
    ```bash
-   breach-search seed
+   poetry run breach-search seed
    ```
 
 4. Index breach files:
    ```bash
-   breach-search index
+   poetry run breach-search index
    ```
 
 5. Run a batch:
    ```bash
-   breach-search run
+   poetry run breach-search run
    ```
 
 ## Environment Variables
@@ -95,7 +96,7 @@ Use this if you already have SQL Server installed locally.
 
 ## CLI Commands
 
-All commands are invoked via `breach-search` (installed by Poetry) or `python -m app`.
+All commands are invoked via `poetry run breach-search` or `python -m app`.
 
 Add `--verbose` before any subcommand to enable DEBUG-level logging.
 
@@ -104,7 +105,7 @@ Add `--verbose` before any subcommand to enable DEBUG-level logging.
 Generate simulated breach files for testing:
 
 ```bash
-breach-search generate
+poetry run breach-search generate
 ```
 
 ### seed
@@ -112,7 +113,7 @@ breach-search generate
 Seed the database with master customer data and DLU metadata:
 
 ```bash
-breach-search seed
+poetry run breach-search seed
 ```
 
 ### index
@@ -121,10 +122,10 @@ Create the Azure AI Search index and index all eligible breach files:
 
 ```bash
 # V2 indexing (default)
-breach-search index
+poetry run breach-search index
 
 # V3 indexing pipeline
-breach-search index --v3
+poetry run breach-search index --v3
 ```
 
 ### run
@@ -133,13 +134,13 @@ Run a full batch processing pass against all customers:
 
 ```bash
 # V2 batch (default)
-breach-search run
+poetry run breach-search run
 
 # V3 batch (Azure AI Search only, no local strategies)
-breach-search run --v3
+poetry run breach-search run --v3
 
 # V2 batch with a custom strategies file
-breach-search run --strategies path/to/strategies.yaml
+poetry run breach-search run --strategies path/to/strategies.yaml
 ```
 
 ### status
@@ -148,10 +149,10 @@ Query the status of a batch run (prints JSON):
 
 ```bash
 # Summary status for a batch
-breach-search status <BATCH_ID>
+poetry run breach-search status <BATCH_ID>
 
 # Include per-customer status entries
-breach-search status <BATCH_ID> --customers
+poetry run breach-search status <BATCH_ID> --customers
 ```
 
 ### compare
@@ -159,7 +160,7 @@ breach-search status <BATCH_ID> --customers
 Compare V2 and V3 batch results side-by-side:
 
 ```bash
-breach-search compare <V2_BATCH_ID> <V3_BATCH_ID>
+poetry run breach-search compare <V2_BATCH_ID> <V3_BATCH_ID>
 ```
 
 ## Testing
