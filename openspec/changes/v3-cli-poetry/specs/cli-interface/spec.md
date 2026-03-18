@@ -27,7 +27,7 @@ The system SHALL provide a `breach-search seed` command that seeds the database 
 
 #### Scenario: Seed database
 - **WHEN** `breach-search seed` is executed
-- **THEN** the system calls `scripts.seed_database.main()`, which creates schemas/tables if needed and inserts rows from `data/seed/master_data.csv` and `data/seed/dlu_metadata.csv` into SQL Server
+- **THEN** the system calls `scripts.seed_database.main()`, which creates schemas/tables if needed and inserts rows from `data/seed/master_data.csv` and `data/seed/dlu_metadata.csv` into PostgreSQL
 
 #### Scenario: Seed is idempotent
 - **WHEN** `breach-search seed` is executed twice
@@ -46,14 +46,14 @@ The system SHALL provide a `breach-search index` command that creates the Azure 
 
 #### Scenario: Resumable indexing
 - **WHEN** `breach-search index` is executed after a previous interrupted run
-- **THEN** files already marked as "indexed" in the `[Index].[file_status]` table are skipped, and only remaining files are processed
+- **THEN** files already marked as "indexed" in the `"Index"."file_status"` table are skipped, and only remaining files are processed
 
 ### Requirement: run command
 The system SHALL provide a `breach-search run` command that executes a full batch processing run. The command SHALL accept `--v3` for V3 pipeline and `--strategies FILE` for a custom strategies YAML file. Without `--strategies`, the default `strategies.yaml` in the project root is used.
 
 #### Scenario: Run V2 batch with default strategies
 - **WHEN** `breach-search run` is executed
-- **THEN** the system loads strategies from `strategies.yaml`, connects to SQL Server and Azure AI Search, calls `batch_service.start_batch(db, search_client, strategies)`, logs progress per customer to stdout, and prints the batch_id when complete
+- **THEN** the system loads strategies from `strategies.yaml`, connects to PostgreSQL and Azure AI Search, calls `batch_service.start_batch(db, search_client, strategies)`, logs progress per customer to stdout, and prints the batch_id when complete
 
 #### Scenario: Run V2 batch with custom strategies
 - **WHEN** `breach-search run --strategies custom_strategies.yaml` is executed
@@ -72,7 +72,7 @@ The system SHALL provide a `breach-search status BATCH_ID` command that prints t
 
 #### Scenario: Query existing batch status
 - **WHEN** `breach-search status abc123-def456` is executed and that batch exists
-- **THEN** the system queries `[Batch].[batch_runs]` and `[Batch].[customer_status]`, and prints a JSON object with `batch_id`, `status`, `started_at`, `completed_at`, `total_customers`, `completed_customers`, `failed_customers`
+- **THEN** the system queries `"Batch"."batch_runs"` and `"Batch"."customer_status"`, and prints a JSON object with `batch_id`, `status`, `started_at`, `completed_at`, `total_customers`, `completed_customers`, `failed_customers`
 
 #### Scenario: Query non-existent batch
 - **WHEN** `breach-search status nonexistent-id` is executed and no batch with that ID exists
@@ -112,8 +112,8 @@ The CLI SHALL construct database sessions and Azure Search clients using helper 
 The CLI SHALL catch service-layer exceptions, print user-friendly error messages to stderr, and exit with appropriate codes. The CLI SHALL NOT print Python tracebacks unless `--verbose` is enabled.
 
 #### Scenario: Database connection failure
-- **WHEN** `breach-search run` is executed but the SQL Server is unreachable
-- **THEN** the system prints "Error: Could not connect to database. Check DB_SERVER and DATABASE_URL in your .env file." and exits with code 1
+- **WHEN** `breach-search run` is executed but the PostgreSQL server is unreachable
+- **THEN** the system prints "Error: Could not connect to database. Check POSTGRES_SERVER and DATABASE_URL in your .env file." and exits with code 1
 
 #### Scenario: Azure Search connection failure
 - **WHEN** `breach-search index` is executed but Azure Search credentials are invalid

@@ -1,11 +1,9 @@
 """
 SQLAlchemy 2.0 database configuration.
 
-Engine and session factories use mssql+pyodbc dialect.
+Engine and session factories use postgresql+psycopg2 dialect.
 Connection string is read from the DATABASE_URL environment variable /
 .env file via pydantic-settings (loaded in app/config.py).
-
-Do NOT import pyodbc directly here — the import is lazy through SQLAlchemy.
 """
 
 from __future__ import annotations
@@ -22,19 +20,17 @@ class Base(DeclarativeBase):
 
 def get_engine(database_url: str | None = None) -> Engine:
     """
-    Create and return a SQLAlchemy Engine for SQL Server via pyodbc.
+    Create and return a SQLAlchemy Engine.
 
     Parameters
     ----------
     database_url:
         Full connection string, e.g.
-        ``mssql+pyodbc://user:pass@server/db?driver=ODBC+Driver+17+for+SQL+Server``
+        ``postgresql+psycopg2://user:pass@host:5432/dbname``
         Falls back to the ``DATABASE_URL`` environment variable when not provided.
     """
     url = database_url or os.environ.get("DATABASE_URL", "")
-    # use_setinputsizes=False works around the legacy SQL Server ODBC driver's
-    # inability to handle NVARCHAR(MAX) parameters in batch inserts.
-    return create_engine(url, echo=False, use_setinputsizes=False)
+    return create_engine(url, echo=False)
 
 
 def get_session_factory(engine: Engine | None = None) -> sessionmaker[Session]:

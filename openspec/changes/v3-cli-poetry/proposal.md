@@ -11,7 +11,7 @@ The service layer (`batch_service`, `search_service`, `leak_detection_service`, 
 - **Extract batch query helpers**: Move pure DB query functions from `app/routers/batch.py` into `app/services/batch_query_service.py` before deleting routers
 - **Relocate domain model**: Move `app/schemas/pii.py` to `app/models/pii.py` (it's a domain model used by services, not an API schema)
 - **Add Poetry**: Replace `requirements.txt` with `pyproject.toml` + `poetry.lock` for reproducible builds
-- **Add Docker**: `Dockerfile` + `docker-compose.yml` (SQL Server container) for portable setup
+- **Add Docker**: `Dockerfile` + `docker-compose.yml` (connects to Azure PostgreSQL) for portable setup
 - **Add README**: Step-by-step setup for both Docker and local development
 
 ## Capabilities
@@ -49,5 +49,5 @@ The service layer (`batch_service`, `search_service`, `leak_detection_service`, 
 | Batch status | `GET /batch/{id}/status` | `breach-search status <id>` |
 | Indexing | `POST /index/all` | `breach-search index` |
 | DB seeding | `python scripts/seed_database.py` | `breach-search seed` |
-| Containerization | None | `docker-compose.yml` with SQL Server |
+| Containerization | None | `docker-compose.yml` with Azure PostgreSQL |
 | Setup docs | None | `README.md` with Docker + local instructions |

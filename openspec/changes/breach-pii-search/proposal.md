@@ -9,7 +9,7 @@ When breach data files are discovered (payroll registers, HR forms, insurance cl
 - Implement a three-tier leak detection engine: exact regex matching (SSN, DOB, zip), normalized string matching (names, cities), and fuzzy matching via rapidfuzz (misspellings, reordered tokens)
 - Implement a weighted confidence scoring model that combines per-field match confidence with Azure AI Search relevance scores across three scenarios (SSN+Name, SSN-only, Name-only)
 - Create a simulated dataset of 10 customers and ~25 breach files with intentional name variations, format differences, and multi-customer files for testing
-- Set up SQL Server tables for customer PII storage (`[PII].[master_pii]`) and search result persistence (`[Search].[search_results]`)
+- Set up PostgreSQL tables for customer PII storage (`"PII"."master_pii"`) and search result persistence (`"Search"."search_results"`)
 
 ## Capabilities
 
@@ -25,7 +25,7 @@ When breach data files are discovered (payroll registers, HR forms, insurance cl
 ## Impact
 
 - **New API endpoints**: `POST /search` (PII search), `POST /index/all` and `POST /index/{guid}` (indexing)
-- **Database**: New `[PII].[master_pii]` and `[Search].[search_results]` tables in local SQL Server; reads from existing `[DLU].[datalakeuniverse]` table
+- **Database**: New `"PII"."master_pii"` and `"Search"."search_results"` tables in PostgreSQL; reads from existing `"DLU"."datalakeuniverse"` table
 - **Azure AI Search**: New index `breach-file-index` with custom phonetic and name analyzers, scoring profile `pii_boost`
-- **Dependencies**: FastAPI, SQLAlchemy 2.0, pyodbc, rapidfuzz, azure-search-documents, openpyxl, xlrd, pydantic-settings
+- **Dependencies**: FastAPI, SQLAlchemy 2.0, psycopg2-binary, rapidfuzz, azure-search-documents, openpyxl, xlrd, pydantic-settings
 - **File system**: Reads breach files from configurable base path; generates simulated files to `data/simulated_files/`

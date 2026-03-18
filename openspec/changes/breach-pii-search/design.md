@@ -1,6 +1,6 @@
 ## Context
 
-The organization needs to identify which customers' PII appears in breach data files discovered during investigations. Breach files (txt, xlsx, csv, xls) sit in a file system indexed by a DLU (Data Lake Universe) table in SQL Server with MD5 hash as the primary key. There is no automated system to search these files against known customer PII records. Azure AI Search is already provisioned and available. File volumes can reach 1TB with tens of thousands of files.
+The organization needs to identify which customers' PII appears in breach data files discovered during investigations. Breach files (txt, xlsx, csv, xls) sit in a file system indexed by a DLU (Data Lake Universe) table in PostgreSQL with MD5 hash as the primary key. There is no automated system to search these files against known customer PII records. Azure AI Search is already provisioned and available. File volumes can reach 1TB with tens of thousands of files.
 
 This is V2 — replacing V1's single-customer on-demand search with automated batch processing across all customers using configurable search strategies.
 
@@ -68,30 +68,30 @@ This is the core of the system. Azure AI Search finds *candidate* files; leak de
 
 Sliding window approach: split file text into overlapping windows of `len(search_term) * 1.5` characters with step size `max(1, len(search_term) // 2)` (50% overlap), compute `token_set_ratio` against each window, take the maximum score.
 
-### Decision 4: SQLAlchemy 2.0 with pyodbc for SQL Server
+### Decision 4: SQLAlchemy 2.0 with psycopg2 for PostgreSQL
 
-SQLAlchemy 2.0 provides mature SQL Server support via `mssql+pyodbc` dialect. V2 uses a simplified schema:
+SQLAlchemy 2.0 provides mature PostgreSQL support via `postgresql+psycopg2` dialect. V2 uses a simplified schema:
 
 **Input tables:**
 ```sql
-[DLU].[datalakeuniverse] (
+"DLU"."datalakeuniverse" (
     MD5       VARCHAR(32) PRIMARY KEY,
-    file_path NVARCHAR(500) NOT NULL
+    file_path VARCHAR(500) NOT NULL
 )
 
-[PII].[master_data] (
+"PII"."master_data" (
     customer_id     INT PRIMARY KEY,
-    Fullname        NVARCHAR(250),
-    FirstName       NVARCHAR(100),
-    LastName        NVARCHAR(100),
+    Fullname        VARCHAR(250),
+    FirstName       VARCHAR(100),
+    LastName        VARCHAR(100),
     DOB             DATE,
     SSN             VARCHAR(11),
     DriversLicense  VARCHAR(50),
-    Address1        NVARCHAR(250),
-    Address2        NVARCHAR(250),
-    Address3        NVARCHAR(250),
+    Address1        VARCHAR(250),
+    Address2        VARCHAR(250),
+    Address3        VARCHAR(250),
     ZipCode         VARCHAR(10),
-    City            NVARCHAR(100),
+    City            VARCHAR(100),
     State           VARCHAR(2),
     Country         VARCHAR(50)
 )
@@ -99,50 +99,50 @@ SQLAlchemy 2.0 provides mature SQL Server support via `mssql+pyodbc` dialect. V2
 
 **Batch and status tables:**
 ```sql
-[Batch].[batch_runs] (
-    batch_id        UNIQUEIDENTIFIER PRIMARY KEY,
-    strategy_set    NVARCHAR(MAX),    -- JSON: strategies used
+"Batch"."batch_runs" (
+    batch_id        UUID PRIMARY KEY,
+    strategy_set    TEXT,             -- JSON: strategies used
     status          VARCHAR(20),      -- pending, running, completed, failed
-    started_at      DATETIME2,
-    completed_at    DATETIME2,
+    started_at      TIMESTAMP,
+    completed_at    TIMESTAMP,
     total_customers INT,
     total_files     INT
 )
 
-[Batch].[customer_status] (
-    id              INT IDENTITY PRIMARY KEY,
-    batch_id        UNIQUEIDENTIFIER FK → batch_runs,
+"Batch"."customer_status" (
+    id              SERIAL PRIMARY KEY,
+    batch_id        UUID FK → batch_runs,
     customer_id     INT FK → master_data,
     status          VARCHAR(20),     -- pending, searching, detecting, complete, failed
     candidates_found INT DEFAULT 0,
     leaks_confirmed  INT DEFAULT 0,
-    strategies_matched NVARCHAR(MAX), -- JSON array
-    error_message   NVARCHAR(MAX),
-    processed_at    DATETIME2
+    strategies_matched TEXT,         -- JSON array
+    error_message   TEXT,
+    processed_at    TIMESTAMP
 )
 
-[Index].[file_status] (
+"Index"."file_status" (
     md5             VARCHAR(32) PRIMARY KEY FK → datalakeuniverse,
     status          VARCHAR(20),    -- indexed, failed, skipped
-    indexed_at      DATETIME2,
-    error_message   NVARCHAR(MAX)
+    indexed_at      TIMESTAMP,
+    error_message   TEXT
 )
 ```
 
 **Results table:**
 ```sql
-[Search].[results] (
-    id                  INT IDENTITY PRIMARY KEY,
-    batch_id            UNIQUEIDENTIFIER FK → batch_runs,
+"Search"."results" (
+    id                  SERIAL PRIMARY KEY,
+    batch_id            UUID FK → batch_runs,
     customer_id         INT FK → master_data,
     md5                 VARCHAR(32) FK → datalakeuniverse,
     strategy_name       VARCHAR(100),
-    leaked_fields       NVARCHAR(MAX),   -- JSON array
-    match_details       NVARCHAR(MAX),   -- JSON per-field details
-    overall_confidence  FLOAT,
-    azure_search_score  FLOAT,
-    needs_review        BIT DEFAULT 0,
-    searched_at         DATETIME2 DEFAULT GETDATE()
+    leaked_fields       TEXT,            -- JSON array
+    match_details       TEXT,            -- JSON per-field details
+    overall_confidence  DOUBLE PRECISION,
+    azure_search_score  DOUBLE PRECISION,
+    needs_review        BOOLEAN DEFAULT FALSE,
+    searched_at         TIMESTAMP DEFAULT NOW()
 )
 ```
 
@@ -202,8 +202,8 @@ For each customer:
 ### Decision 10: Resumable processing at every level
 
 At 1TB scale, crashes are inevitable. Both indexing and batch processing are resumable:
-- **Indexing**: `[Index].[file_status]` tracks which files are indexed; resume skips them
-- **Batch**: `[Batch].[customer_status]` tracks which customers are done; resume skips completed, retries failed, continues from where it stopped
+- **Indexing**: `"Index"."file_status"` tracks which files are indexed; resume skips them
+- **Batch**: `"Batch"."customer_status"` tracks which customers are done; resume skips completed, retries failed, continues from where it stopped
 
 ### Decision 11: FastAPI project structure
 
@@ -248,7 +248,7 @@ breach-search/
 ```
 
 Configuration via `.env` file loaded by pydantic-settings `BaseSettings`:
-- `DATABASE_URL`: SQL Server connection string
+- `DATABASE_URL`: PostgreSQL connection string
 - `AZURE_SEARCH_ENDPOINT`: Azure AI Search endpoint
 - `AZURE_SEARCH_KEY`: Azure AI Search admin key
 - `AZURE_SEARCH_INDEX`: Index name (default: `breach-file-index`)
@@ -267,7 +267,7 @@ Configuration via `.env` file loaded by pydantic-settings `BaseSettings`:
 
 - **[Batch run duration at scale]** → Mitigation: Resumability ensures no lost progress. Status tracking provides visibility. Sequential processing is simpler and sufficient for batch workloads.
 
-- **[SQL Server dependency for local development]** → Mitigation: Docker container for SQL Server. Connection string is configurable via .env.
+- **[PostgreSQL dependency]** → Mitigation: Azure PostgreSQL is used as a managed service. Connection string is configurable via .env.
 
 ## Open Questions
 

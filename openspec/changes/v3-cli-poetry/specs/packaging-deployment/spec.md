@@ -23,7 +23,7 @@ The system SHALL use Poetry for dependency management with a `pyproject.toml` fi
 The `pyproject.toml` SHALL declare these runtime dependencies:
 - `python ^3.12`
 - `sqlalchemy ^2.0` (with asyncio extras)
-- `pyodbc ^5.1`
+- `psycopg2-binary ^2.9`
 - `rapidfuzz ^3.0`
 - `azure-search-documents ^11.4`
 - `openpyxl ^3.1`
@@ -66,19 +66,15 @@ The system SHALL provide a `Dockerfile` at the project root that builds a contai
 - **THEN** the Click CLI help text is displayed (same as running locally)
 
 #### Scenario: Run seed in container
-- **WHEN** `docker run --env-file .env breach-search seed` is executed with a reachable SQL Server
+- **WHEN** `docker run --env-file .env breach-search seed` is executed with a reachable PostgreSQL server
 - **THEN** the database is seeded with master data and DLU metadata
 
 ### Requirement: Docker Compose for full stack
-The system SHALL provide a `docker-compose.yml` at the project root that defines two services: `sqlserver` (Microsoft SQL Server 2022) and `app` (the breach-search CLI). The SQL Server service SHALL be pre-configured with environment variables for immediate use.
+The system SHALL provide a `docker-compose.yml` at the project root that defines the `app` service (the breach-search CLI) configured to connect to Azure PostgreSQL. The database is hosted externally on Azure PostgreSQL (datasense-prod-pg-restored.postgres.database.azure.com) and does not require a local container.
 
-#### Scenario: Start SQL Server via Docker Compose
-- **WHEN** `docker-compose up -d sqlserver` is executed
-- **THEN** a SQL Server 2022 container starts on port 1433, accessible with the configured SA password
-
-#### Scenario: App container depends on SQL Server
-- **WHEN** `docker-compose up app` is executed
-- **THEN** the SQL Server container starts first (via `depends_on`), and the app container starts after it is running
+#### Scenario: App container connects to Azure PostgreSQL
+- **WHEN** `docker-compose up app` is executed with correct `.env` values for `POSTGRES_SERVER`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD`
+- **THEN** the app container starts and connects to the Azure PostgreSQL database
 
 #### Scenario: Data volume is mounted
 - **WHEN** `docker-compose up app` is executed
@@ -89,17 +85,17 @@ The system SHALL provide a `README.md` at the project root with step-by-step ins
 
 #### Scenario: Docker Quick Start works end-to-end
 - **GIVEN** a machine with Docker and Poetry installed
-- **WHEN** a user follows the Docker Quick Start steps in README (clone, copy .env, docker-compose up sqlserver, poetry install, breach-search seed, breach-search index, breach-search run)
+- **WHEN** a user follows the Docker Quick Start steps in README (clone, copy .env, poetry install, breach-search seed, breach-search index, breach-search run)
 - **THEN** the database is seeded, files are indexed, and a batch run completes successfully
 
 #### Scenario: Local Quick Start works end-to-end
-- **GIVEN** a machine with Python 3.12+, Poetry, SQL Server, and ODBC Driver 17 installed
+- **GIVEN** a machine with Python 3.12+ and Poetry installed, with access to Azure PostgreSQL
 - **WHEN** a user follows the Local Quick Start steps in README (poetry install, copy .env, breach-search seed, breach-search index, breach-search run)
 - **THEN** the database is seeded, files are indexed, and a batch run completes successfully
 
 #### Scenario: Environment variables documented
 - **WHEN** a user reads the Environment Variables section of README
-- **THEN** they find documentation for: `DATABASE_URL`, `AZURE_SEARCH_ENDPOINT`, `AZURE_SEARCH_KEY`, `AZURE_SEARCH_INDEX`, `AZURE_SEARCH_INDEX_V3`, `FILE_BASE_PATH`, `DB_SERVER`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`
+- **THEN** they find documentation for: `DATABASE_URL`, `AZURE_SEARCH_ENDPOINT`, `AZURE_SEARCH_KEY`, `AZURE_SEARCH_INDEX`, `AZURE_SEARCH_INDEX_V3`, `FILE_BASE_PATH`, `POSTGRES_SERVER`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`
 
 #### Scenario: CLI commands documented
 - **WHEN** a user reads the CLI Commands section of README

@@ -1,20 +1,20 @@
 ## 1. Project Scaffold & Configuration
 
 - [ ] 1.1 Create project directory structure (app/, scripts/, data/, tests/ with all subdirectories) and `__init__.py` files for all Python packages (app/, app/models/, app/schemas/, app/services/, app/routers/, app/utils/)
-- [ ] 1.2 Create `requirements.txt` with all dependencies (fastapi, uvicorn, sqlalchemy, pyodbc, rapidfuzz, azure-search-documents, openpyxl, xlrd, pydantic-settings, pyyaml, pytest, pytest-mock)
+- [ ] 1.2 Create `requirements.txt` with all dependencies (fastapi, uvicorn, sqlalchemy, psycopg2-binary, rapidfuzz, azure-search-documents, openpyxl, xlrd, pydantic-settings, pyyaml, pytest, pytest-mock)
 - [ ] 1.3 Create `.env.example` with all required environment variables (DATABASE_URL, AZURE_SEARCH_ENDPOINT, AZURE_SEARCH_KEY, AZURE_SEARCH_INDEX)
 - [ ] 1.4 Create `app/config.py` with pydantic-settings BaseSettings loading from .env
 - [ ] 1.5 Create `.gitignore` (Python defaults + .env, __pycache__, .pytest_cache, data/TEXT/, *.pyc)
-- [ ] 1.6 Create `app/models/database.py` with SQLAlchemy 2.0 engine and session factory (mssql+pyodbc)
+- [ ] 1.6 Create `app/models/database.py` with SQLAlchemy 2.0 engine and session factory (postgresql+psycopg2)
 - [ ] 1.7 Create default `strategies.yaml` with three default strategies (fullname_ssn, lastname_dob, unique_identifiers)
 
 ## 2. Database Models (SQLAlchemy ORM)
 
-- [ ] 2.1 Create `app/models/dlu.py` — ORM model for `[DLU].[datalakeuniverse]` (MD5 as PK, file_path only)
-- [ ] 2.2 Create `app/models/master_data.py` — ORM model for `[PII].[master_data]` (customer_id as PK, 13 PII fields)
-- [ ] 2.3 Create `app/models/batch.py` — ORM models for `[Batch].[batch_runs]` (batch_id, strategy_set, status, timestamps, totals) and `[Batch].[customer_status]` (batch_id, customer_id, status, candidates_found, leaks_confirmed, strategies_matched, error_message, processed_at)
-- [ ] 2.4 Create `app/models/result.py` — ORM model for `[Search].[results]` (batch_id, customer_id, md5, strategy_name, leaked_fields JSON, match_details JSON, overall_confidence, azure_search_score, needs_review, searched_at)
-- [ ] 2.5 Create `app/models/file_status.py` — ORM model for `[Index].[file_status]` (md5 as PK, status, indexed_at, error_message)
+- [ ] 2.1 Create `app/models/dlu.py` — ORM model for `"DLU"."datalakeuniverse"` (MD5 as PK, file_path only)
+- [ ] 2.2 Create `app/models/master_data.py` — ORM model for `"PII"."master_data"` (customer_id as PK, 13 PII fields)
+- [ ] 2.3 Create `app/models/batch.py` — ORM models for `"Batch"."batch_runs"` (batch_id, strategy_set, status, timestamps, totals) and `"Batch"."customer_status"` (batch_id, customer_id, status, candidates_found, leaks_confirmed, strategies_matched, error_message, processed_at)
+- [ ] 2.4 Create `app/models/result.py` — ORM model for `"Search"."results"` (batch_id, customer_id, md5, strategy_name, leaked_fields JSON, match_details JSON, overall_confidence, azure_search_score, needs_review, searched_at)
+- [ ] 2.5 Create `app/models/file_status.py` — ORM model for `"Index"."file_status"` (md5 as PK, status, indexed_at, error_message)
 
 ## 3. Simulated Data Generation
 
@@ -22,7 +22,7 @@
 - [ ] 3.2 Generate ~25 breach files across .txt, .xlsx, .csv, .xls formats with PII from 1–4 customers per file embedded in realistic document context. Write each file to BOTH `data/simulated_files/{descriptive_name}.{ext}` (human browsing) AND `data/TEXT/{md5[:3]}/{md5}.{ext}` (indexing pipeline). Both copies must be identical.
 - [ ] 3.3 Include intentional PII variations in generated files: name misspellings, SSN format changes, date format variations, reordered names, abbreviations
 - [ ] 3.4 Generate `data/seed/dlu_metadata.csv` with MD5 and file_path (following data/TEXT/{md5[:3]}/{md5}.ext convention). No GUID, caseName, fileName, fileExtension, or isExclusion columns.
-- [ ] 3.5 Create `scripts/seed_database.py` — read CSVs and insert into SQL Server tables, creating schemas/tables if needed, with idempotent seeding
+- [ ] 3.5 Create `scripts/seed_database.py` — read CSVs and insert into PostgreSQL tables, creating schemas/tables if needed, with idempotent seeding
 
 ## 4. Text Extraction Service
 
@@ -45,8 +45,8 @@
 - [ ] 6.3 Implement document building: populate all index fields (same text in content, content_phonetic, content_lowercase; MD5 as id)
 - [ ] 6.4 Implement batch upload to Azure AI Search (up to 1000 documents per batch) with progress logging. Documents with the same id are upserted (overwritten).
 - [ ] 6.5 Implement `index_single_file(db, search_client, md5)` for single-file indexing by MD5
-- [ ] 6.6 Implement resumable indexing: check `[Index].[file_status]` table before indexing each file, skip already-indexed MD5s, support `force=true` to re-index all
-- [ ] 6.7 Update `[Index].[file_status]` table after each file (indexed/failed with error_message)
+- [ ] 6.6 Implement resumable indexing: check `"Index"."file_status"` table before indexing each file, skip already-indexed MD5s, support `force=true` to re-index all
+- [ ] 6.7 Update `"Index"."file_status"` table after each file (indexed/failed with error_message)
 - [ ] 6.8 Return IndexResponse from indexing functions: `{ files_processed, files_succeeded, files_failed, files_skipped, errors: list[str] }`
 - [ ] 6.9 Create `scripts/run_indexing.py` — standalone script to trigger full indexing pipeline
 
@@ -96,7 +96,7 @@
 - [ ] 12.4 Implement resumable batch: on resume, skip completed customers, retry failed, continue from last pending
 - [ ] 12.5 Implement error handling: catch per-customer errors, mark failed, continue to next customer
 - [ ] 12.6 Implement batch completion: update batch_runs status to "completed" when all customers processed
-- [ ] 12.7 Implement result persistence: insert rows into `[Search].[results]` for each (customer, file) pair with leaks
+- [ ] 12.7 Implement result persistence: insert rows into `"Search"."results"` for each (customer, file) pair with leaks
 
 ## 13. Pydantic Schemas (Request/Response Models)
 

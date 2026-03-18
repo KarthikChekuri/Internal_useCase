@@ -2,7 +2,7 @@
 
 V3 is an alternate route that replaces Python-side PII detection (regex, normalized matching, rapidfuzz) with Azure AI Search-native capabilities (Lucene queries, hit highlighting, PII Detection cognitive skill, metadata filters). The goal is to evaluate whether Azure AI Search alone can deliver comparable accuracy to the Python-based approach, with a simpler architecture and no disk dependency at search time.
 
-V3 runs alongside V2 in the same FastAPI app. Both use the same SQL Server tables, same simulated data, same customer records. The only differences are: (1) a separate Azure AI Search index with PII metadata, and (2) a different search/detection strategy at query time.
+V3 runs alongside V2 in the same FastAPI app. Both use the same PostgreSQL tables, same simulated data, same customer records. The only differences are: (1) a separate Azure AI Search index with PII metadata, and (2) a different search/detection strategy at query time.
 
 ## Goals / Non-Goals
 
@@ -19,7 +19,7 @@ V3 runs alongside V2 in the same FastAPI app. Both use the same SQL Server table
 - Achieve identical confidence scores to V2 (different scoring model)
 - Support file chunking (simulated files fit in single documents)
 - Modify any V2 code or specs
-- Create a separate database schema for V3 results (reuse `[Search].[results]` with a `method` column or tag)
+- Create a separate database schema for V3 results (reuse `"Search"."results"` with a `method` column or tag)
 
 ## Decisions
 
@@ -161,7 +161,7 @@ V3 routes are registered under a `/v3` prefix:
 | `GET /batch/{id}/results` | `GET /v3/batch/{id}/results` |
 | `POST /index/all` | `POST /v3/index/all` |
 
-V3 batch results are stored in the same `[Search].[results]` table with `strategy_name = "v3_azure_only"` to distinguish them from V2 results.
+V3 batch results are stored in the same `"Search"."results"` table with `strategy_name = "v3_azure_only"` to distinguish them from V2 results.
 
 ### Decision 7: Project structure (additive only)
 
@@ -203,7 +203,7 @@ No existing files are modified.
 
 ## Open Questions
 
-- Should V3 results be stored in the same `[Search].[results]` table or a separate table?
+- Should V3 results be stored in the same `"Search"."results"` table or a separate table?
 - Should the PII Detection cognitive skill be optional (config toggle) since it adds Azure billing?
 - What `minimumPrecision` threshold should the PII skill use? (0.5 is the default — lower catches more, higher reduces noise)
 - Should per-field queries use `search_mode="all"` or `search_mode="any"`? "all" is more precise but may miss partial matches.

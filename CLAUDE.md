@@ -20,12 +20,12 @@
 - All tests must pass before a phase is archived
 
 ### What counts as a test
-- Unit tests: one function/class at a time, mock external dependencies (SQL Server, Azure Search)
+- Unit tests: one function/class at a time, mock external dependencies (PostgreSQL, Azure Search)
 - Integration tests (Batch 6 only): real DB + real Azure Search, using simulated data
 
 ### Mocking rules
 - Mock `azure.search.documents` — never hit real Azure AI Search in unit tests
-- Mock `sqlalchemy` sessions — never hit real SQL Server in unit tests
+- Mock `sqlalchemy` sessions — never hit real PostgreSQL in unit tests
 - Use `pytest` fixtures for shared setup
 - Use `pytest-mock` or `unittest.mock` for mocking
 
@@ -92,11 +92,11 @@ Active work is tracked in `plans/roadmap.md`.
 
 ## Tech Stack
 
-- Python 3.12+, Click, Poetry, SQLAlchemy 2.0, pyodbc
+- Python 3.12+, Click, Poetry, SQLAlchemy 2.0, psycopg2-binary
 - Azure AI Search (`azure-search-documents`)
 - rapidfuzz, openpyxl, xlrd, pydantic-settings
 - pytest, pytest-mock
-- Windows 11 / localhost SQL Server
+- Azure PostgreSQL (datasense-prod-pg-restored.postgres.database.azure.com)
 
 ## CLI (V4)
 

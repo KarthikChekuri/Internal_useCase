@@ -73,15 +73,15 @@ The system SHALL generate a DLU metadata CSV (`data/seed/dlu_metadata.csv`) with
 - **THEN** the file_path is `data/TEXT/c85/c8578af0e239aaeb7e4030b346430ac3.txt`
 
 ### Requirement: Seed database from CSV files
-The system SHALL provide a script that reads `master_data.csv` and `dlu_metadata.csv` and inserts the data into `[PII].[master_data]` and `[DLU].[datalakeuniverse]` tables in local SQL Server, creating the tables and schemas if they do not exist.
+The system SHALL provide a script that reads `master_data.csv` and `dlu_metadata.csv` and inserts the data into `"PII"."master_data"` and `"DLU"."datalakeuniverse"` tables in PostgreSQL, creating the tables and schemas if they do not exist.
 
 #### Scenario: Seed master data table
 - **WHEN** the seed database script runs with `master_data.csv`
-- **THEN** 10 customer records are inserted into `[PII].[master_data]` with all fields mapped correctly, using `customer_id` as the primary key
+- **THEN** 10 customer records are inserted into `"PII"."master_data"` with all fields mapped correctly, using `customer_id` as the primary key
 
 #### Scenario: Seed DLU table
 - **WHEN** the seed database script runs with `dlu_metadata.csv`
-- **THEN** all file metadata records are inserted into `[DLU].[datalakeuniverse]` with MD5 as primary key and file_path
+- **THEN** all file metadata records are inserted into `"DLU"."datalakeuniverse"` with MD5 as primary key and file_path
 
 #### Scenario: Idempotent seeding
 - **WHEN** the seed script runs twice

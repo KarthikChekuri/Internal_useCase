@@ -1,30 +1,24 @@
 """
-Phase V2-1.4 — Seed Database Script (V2 rewrite)
-==================================================
+Seed Database Script — PostgreSQL (Azure)
+==========================================
 Reads data/seed/master_data.csv and data/seed/dlu_metadata.csv and inserts
-records into a local SQL Server instance.
+records into Azure PostgreSQL.
 
-V2 changes from V1:
-  - Reads master_data.csv (not master_pii.csv)
-  - Table is [PII].[master_data] (not [PII].[master_pii])
-  - customer_id (INT) is the primary key for master_data
-  - [DLU].[datalakeuniverse] uses MD5 as primary key (not GUID)
-  - dlu_metadata.csv has only MD5 and file_path columns
+Tables created if they do not exist:
+  "PII"."master_data"           — customer PII records (customer_id INT PK)
+  "DLU"."datalakeuniverse"      — breach-file metadata (MD5 PK + file_path)
 
-  Tables created if they do not exist:
-    [PII].[master_data]           — 10 customer PII records (customer_id INT PK)
-    [DLU].[datalakeuniverse]      — breach-file metadata (MD5 PK + file_path)
-
-  Idempotent: existing rows (matched by primary key) are skipped.
+Idempotent: existing rows (matched by primary key) are skipped via ON CONFLICT.
 
 Usage:
     python scripts/seed_database.py
 
-Environment variables (optional):
-    DB_SERVER   — SQL Server hostname/instance  (default: localhost)
-    DB_NAME     — Database name                  (default: BreachSearch)
-    DB_USER     — SQL login user                 (default: Windows auth)
-    DB_PASSWORD — SQL login password             (default: Windows auth)
+Environment variables:
+    POSTGRES_SERVER   — PostgreSQL hostname
+    POSTGRES_PORT     — PostgreSQL port (default: 5432)
+    POSTGRES_DB       — Database name
+    POSTGRES_USER     — Database username
+    POSTGRES_PASSWORD — Database password
 """
 
 from __future__ import annotations
@@ -53,35 +47,24 @@ DLU_METADATA_CSV = SEED_DIR / "dlu_metadata.csv"
 # Database connection helpers
 # ---------------------------------------------------------------------------
 
-def _build_connection_string() -> str:
-    server = os.getenv("DB_SERVER", "localhost,1433")
-    database = os.getenv("DB_NAME", "BreachSearch")
-    user = os.getenv("DB_USER", "")
-    password = os.getenv("DB_PASSWORD", "")
-    driver = os.getenv("DB_DRIVER", "SQL Server")
-
-    if user and password:
-        conn_str = (
-            f"DRIVER={{{driver}}};"
-            f"SERVER={server};DATABASE={database};"
-            f"UID={user};PWD={password}"
-        )
-        # ODBC Driver 17+ supports TrustServerCertificate; old "SQL Server" driver does not
-        if "ODBC Driver" in driver:
-            conn_str += ";TrustServerCertificate=yes"
-        return conn_str
-    # Windows integrated authentication
-    return (
-        f"DRIVER={{{driver}}};"
-        f"SERVER={server};DATABASE={database};"
-        f"Trusted_Connection=yes"
-    )
-
-
 def get_connection():
-    """Return a live pyodbc connection (imported lazily)."""
-    import pyodbc  # noqa: PLC0415 — lazy import avoids hang when not needed
-    return pyodbc.connect(_build_connection_string())
+    """Return a live psycopg2 connection."""
+    import psycopg2  # noqa: PLC0415 — lazy import
+
+    server = os.getenv("POSTGRES_SERVER", "localhost")
+    port = os.getenv("POSTGRES_PORT", "5432")
+    database = os.getenv("POSTGRES_DB", "datasense")
+    user = os.getenv("POSTGRES_USER", "")
+    password = os.getenv("POSTGRES_PASSWORD", "")
+
+    return psycopg2.connect(
+        host=server,
+        port=int(port),
+        dbname=database,
+        user=user,
+        password=password,
+        sslmode="require",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -90,44 +73,34 @@ def get_connection():
 
 DDL_STATEMENTS = [
     # Schemas
-    "IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = 'PII') EXEC('CREATE SCHEMA [PII]')",
-    "IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = 'DLU') EXEC('CREATE SCHEMA [DLU]')",
+    'CREATE SCHEMA IF NOT EXISTS "PII"',
+    'CREATE SCHEMA IF NOT EXISTS "DLU"',
 
-    # PII.master_data (V2: customer_id INT PK, 13 PII fields)
+    # PII.master_data
     """
-    IF NOT EXISTS (
-        SELECT 1 FROM sys.tables t
-        JOIN sys.schemas s ON t.schema_id = s.schema_id
-        WHERE s.name = 'PII' AND t.name = 'master_data'
-    )
-    CREATE TABLE [PII].[master_data] (
-        customer_id     INT            NOT NULL PRIMARY KEY,
-        Fullname        NVARCHAR(100)  NULL,
-        FirstName       NVARCHAR(50)   NULL,
-        LastName        NVARCHAR(50)   NULL,
-        DOB             NVARCHAR(20)   NULL,
-        SSN             NVARCHAR(15)   NULL,
-        DriversLicense  NVARCHAR(30)   NULL,
-        Address1        NVARCHAR(200)  NULL,
-        Address2        NVARCHAR(200)  NULL,
-        Address3        NVARCHAR(200)  NULL,
-        ZipCode         NVARCHAR(10)   NULL,
-        City            NVARCHAR(100)  NULL,
-        State           NVARCHAR(5)    NULL,
-        Country         NVARCHAR(50)   NULL
+    CREATE TABLE IF NOT EXISTS "PII"."master_data" (
+        customer_id     INTEGER        NOT NULL PRIMARY KEY,
+        "Fullname"      VARCHAR(100)   NULL,
+        "FirstName"     VARCHAR(50)    NULL,
+        "LastName"      VARCHAR(50)    NULL,
+        "DOB"           VARCHAR(20)    NULL,
+        "SSN"           VARCHAR(15)    NULL,
+        "DriversLicense" VARCHAR(30)   NULL,
+        "Address1"      VARCHAR(200)   NULL,
+        "Address2"      VARCHAR(200)   NULL,
+        "Address3"      VARCHAR(200)   NULL,
+        "ZipCode"       VARCHAR(10)    NULL,
+        "City"          VARCHAR(100)   NULL,
+        "State"         VARCHAR(5)     NULL,
+        "Country"       VARCHAR(50)    NULL
     )
     """,
 
-    # DLU.datalakeuniverse (V2: MD5 PK, only file_path)
+    # DLU.datalakeuniverse
     """
-    IF NOT EXISTS (
-        SELECT 1 FROM sys.tables t
-        JOIN sys.schemas s ON t.schema_id = s.schema_id
-        WHERE s.name = 'DLU' AND t.name = 'datalakeuniverse'
-    )
-    CREATE TABLE [DLU].[datalakeuniverse] (
-        MD5             NVARCHAR(32)   NOT NULL PRIMARY KEY,
-        file_path       NVARCHAR(500)  NULL
+    CREATE TABLE IF NOT EXISTS "DLU"."datalakeuniverse" (
+        "MD5"           VARCHAR(32)    NOT NULL PRIMARY KEY,
+        file_path       VARCHAR(500)   NULL
     )
     """,
 ]
@@ -148,23 +121,23 @@ def create_schemas_and_tables(cursor) -> None:
 
 def seed_master_data(cursor) -> int:
     """
-    Insert rows from master_data.csv into [PII].[master_data].
+    Insert rows from master_data.csv into "PII"."master_data".
     Skips rows whose customer_id already exists (idempotent).
     Returns the count of rows inserted.
     """
     sql = """
-    IF NOT EXISTS (SELECT 1 FROM [PII].[master_data] WHERE customer_id = ?)
-    INSERT INTO [PII].[master_data]
-        (customer_id, Fullname, FirstName, LastName, DOB, SSN, DriversLicense,
-         Address1, Address2, Address3, ZipCode, City, State, Country)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO "PII"."master_data"
+        (customer_id, "Fullname", "FirstName", "LastName", "DOB", "SSN",
+         "DriversLicense", "Address1", "Address2", "Address3",
+         "ZipCode", "City", "State", "Country")
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    ON CONFLICT (customer_id) DO NOTHING
     """
     inserted = 0
     with open(MASTER_DATA_CSV, newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
             cursor.execute(sql, (
-                int(row["customer_id"]),      # for the EXISTS check
-                int(row["customer_id"]),      # INSERT value
+                int(row["customer_id"]),
                 row["Fullname"], row["FirstName"], row["LastName"],
                 row["DOB"], row["SSN"], row["DriversLicense"],
                 row["Address1"], row["Address2"], row["Address3"],
@@ -177,23 +150,20 @@ def seed_master_data(cursor) -> int:
 
 def seed_dlu_metadata(cursor) -> int:
     """
-    Insert rows from dlu_metadata.csv into [DLU].[datalakeuniverse].
-    V2: uses MD5 as the primary key (not GUID).
+    Insert rows from dlu_metadata.csv into "DLU"."datalakeuniverse".
     Skips rows whose MD5 already exists (idempotent).
     Returns the count of rows inserted.
     """
     sql = """
-    IF NOT EXISTS (SELECT 1 FROM [DLU].[datalakeuniverse] WHERE MD5 = ?)
-    INSERT INTO [DLU].[datalakeuniverse]
-        (MD5, file_path)
-    VALUES (?, ?)
+    INSERT INTO "DLU"."datalakeuniverse" ("MD5", file_path)
+    VALUES (%s, %s)
+    ON CONFLICT ("MD5") DO NOTHING
     """
     inserted = 0
     with open(DLU_METADATA_CSV, newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
             cursor.execute(sql, (
-                row["MD5"],          # for the EXISTS check
-                row["MD5"],          # INSERT value
+                row["MD5"],
                 row["file_path"],
             ))
             inserted += cursor.rowcount
@@ -206,20 +176,20 @@ def seed_dlu_metadata(cursor) -> int:
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    print("Connecting to SQL Server...")
+    print("Connecting to PostgreSQL...")
     conn = get_connection()
     cursor = conn.cursor()
 
     print("Creating schemas and tables if needed...")
     create_schemas_and_tables(cursor)
 
-    print("Seeding [PII].[master_data]...")
+    print('Seeding "PII"."master_data"...')
     n_master = seed_master_data(cursor)
-    print(f"  {n_master} rows inserted into [PII].[master_data]")
+    print(f"  {n_master} rows inserted into PII.master_data")
 
-    print("Seeding [DLU].[datalakeuniverse]...")
+    print('Seeding "DLU"."datalakeuniverse"...')
     n_dlu = seed_dlu_metadata(cursor)
-    print(f"  {n_dlu} rows inserted into [DLU].[datalakeuniverse]")
+    print(f"  {n_dlu} rows inserted into DLU.datalakeuniverse")
 
     cursor.close()
     conn.close()

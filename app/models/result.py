@@ -104,6 +104,6 @@ class Result(Base):
     # --- Timestamp ---
     searched_at: Mapped[Optional[datetime.datetime]] = mapped_column(
         DateTime,
-        server_default=text("GETDATE()"),
+        server_default=text("NOW()"),
         nullable=True,
     )

@@ -1,8 +1,8 @@
 schema: spec-driven
 
 context: |
-  Tech stack: Python 3.12+, FastAPI, SQLAlchemy 2.0, pyodbc
-  Database: Local SQL Server (existing DLU table schema)
+  Tech stack: Python 3.12+, FastAPI, SQLAlchemy 2.0, psycopg2-binary
+  Database: Azure PostgreSQL (datasense-prod-pg-restored.postgres.database.azure.com, existing DLU table schema)
   Search: Azure AI Search (already provisioned)
   Fuzzy matching: rapidfuzz + Azure AI Search phonetic analyzers (Double Metaphone)
   File parsing: openpyxl (xlsx), xlrd (xls), built-in csv module

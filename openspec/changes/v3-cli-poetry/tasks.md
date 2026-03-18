@@ -1,6 +1,6 @@
 ## 1. Poetry Setup
 
-- [ ] 1.1 Create `pyproject.toml` with all runtime deps (sqlalchemy, pyodbc, rapidfuzz, azure-search-documents, openpyxl, xlrd, xlwt, pydantic-settings, python-dotenv, pyyaml, click), dev deps (pytest, pytest-mock), entry point `breach-search = "app.cli:main"`, and pytest config
+- [ ] 1.1 Create `pyproject.toml` with all runtime deps (sqlalchemy, psycopg2-binary, rapidfuzz, azure-search-documents, openpyxl, xlrd, xlwt, pydantic-settings, python-dotenv, pyyaml, click), dev deps (pytest, pytest-mock), entry point `breach-search = "app.cli:main"`, and pytest config
 - [ ] 1.2 Delete `requirements.txt`
 - [ ] 1.3 Run `poetry install` to verify deps resolve and lock file generates
 
@@ -50,7 +50,7 @@
 ## 6. Docker + README
 
 - [ ] 6.1 Create `Dockerfile` (python:3.12-slim, Poetry install, entry point)
-- [ ] 6.2 Create `docker-compose.yml` (SQL Server 2022 + app services)
+- [ ] 6.2 Create `docker-compose.yml` (app service with Azure PostgreSQL connection)
 - [ ] 6.3 Update `.env.example` with all required environment variables
 - [ ] 6.4 Create `README.md` with Docker Quick Start, Local Quick Start, env vars, CLI reference, testing instructions
 - [ ] 6.5 Verify Docker build succeeds

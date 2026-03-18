@@ -8,7 +8,7 @@ packages = [{ include = "app" }]
 [tool.poetry.dependencies]
 python = "^3.12"
 sqlalchemy = "^2.0"
-pyodbc = "^5.1"
+psycopg2-binary = "^2.9"
 rapidfuzz = "^3.0"
 azure-search-documents = "^11.4"
 openpyxl = "^3.1"

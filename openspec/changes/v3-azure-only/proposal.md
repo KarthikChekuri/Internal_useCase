@@ -29,7 +29,7 @@ This is an **alternate route** alongside V2, not a replacement. Both approaches 
 - **New Azure AI Search index**: `breach-file-index-v3` with PII metadata fields and cognitive skill enrichment
 - **Azure AI Language dependency**: PII Detection cognitive skill requires a billable Azure AI Language resource (free tier: 20 docs/day/indexer)
 - **No new Python dependencies**: Uses only `azure-search-documents` (already installed)
-- **No changes to**: SQL Server schema, existing V2 routes, existing V2 services, simulated data, test suite
+- **No changes to**: PostgreSQL schema, existing V2 routes, existing V2 services, simulated data, test suite
 
 ## Delta from V2
 

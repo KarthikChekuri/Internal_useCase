@@ -6,13 +6,8 @@ Search breach files for customer PII using Azure AI Search and fuzzy matching.
 
 - Python 3.12+
 - [Poetry](https://python-poetry.org/docs/#installation)
-- Docker and Docker Compose (optional — for containerised SQL Server)
-- [ODBC Driver 17 for SQL Server](https://learn.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server)
-  - macOS: `brew install microsoft/mssql-release/msodbcsql17`
 
-## Quick Start (Docker)
-
-Use Docker Compose to spin up SQL Server locally, then run the CLI with Poetry.
+## Quick Start
 
 1. Clone the repository:
    ```bash
@@ -20,74 +15,56 @@ Use Docker Compose to spin up SQL Server locally, then run the CLI with Poetry.
    cd breach-search
    ```
 
-2. Copy `.env.example` to `.env` and fill in your Azure credentials:
-   ```bash
-   cp .env.example .env
-   ```
-
-3. Start SQL Server:
-   ```bash
-   docker-compose up -d sqlserver
-   ```
-
-4. Install Python dependencies:
-   ```bash
-   poetry install
-   ```
-
-5. Seed the database with master customer data:
-   ```bash
-   poetry run breach-search seed
-   ```
-
-6. Index breach files into Azure AI Search:
-   ```bash
-   poetry run breach-search index
-   ```
-
-7. Run a batch processing pass:
-   ```bash
-   poetry run breach-search run
-   ```
-
-## Quick Start (Local)
-
-Use this if you already have SQL Server installed locally.
-
-1. Install Python dependencies:
-   ```bash
-   poetry install
-   ```
-
 2. Copy `.env.example` to `.env` and fill in your credentials:
    ```bash
    cp .env.example .env
    ```
 
-3. Seed the database:
+3. Install Python dependencies:
+   ```bash
+   poetry install
+   ```
+
+4. Seed the database with master customer data:
    ```bash
    poetry run breach-search seed
    ```
 
-4. Index breach files:
+5. Index breach files into Azure AI Search:
    ```bash
    poetry run breach-search index
    ```
 
-5. Run a batch:
+6. Run a batch processing pass:
    ```bash
    poetry run breach-search run
    ```
+
+## Database
+
+Uses **Azure PostgreSQL** (`datasense` database on `datasense-prod-pg-restored.postgres.database.azure.com`).
+
+Tables are organized across five schemas — `PII`, `DLU`, `Batch`, `Index`, `Search` — to keep breach search data isolated from other projects sharing the same database.
+
+| Schema | Table | Description |
+|---|---|---|
+| `PII` | `master_data` | Customer PII records (customer_id INT PK) |
+| `DLU` | `datalakeuniverse` | Breach file metadata (MD5 PK + file_path) |
+| `Batch` | `batch_runs` | Top-level batch execution tracking |
+| `Batch` | `customer_status` | Per-customer processing status within a batch |
+| `Index` | `file_status` | Azure AI Search indexing status per file |
+| `Search` | `results` | PII detection results per (customer, file) pair |
 
 ## Environment Variables
 
 | Variable | Description | Required |
 |---|---|---|
-| `DATABASE_URL` | Full SQLAlchemy connection string for SQL Server (mssql+pyodbc dialect) | Required |
-| `DB_SERVER` | SQL Server hostname or IP | Required |
-| `DB_NAME` | Database name | Required |
-| `DB_USER` | Database username | Required |
-| `DB_PASSWORD` | Database password | Required |
+| `DATABASE_URL` | Full SQLAlchemy connection string (postgresql+psycopg2 dialect) | Required |
+| `POSTGRES_SERVER` | PostgreSQL hostname | Required |
+| `POSTGRES_PORT` | PostgreSQL port (default: 5432) | Required |
+| `POSTGRES_DB` | Database name | Required |
+| `POSTGRES_USER` | Database username | Required |
+| `POSTGRES_PASSWORD` | Database password | Required |
 | `AZURE_SEARCH_ENDPOINT` | Azure AI Search service endpoint URL | Required |
 | `AZURE_SEARCH_KEY` | Azure AI Search admin key | Required |
 | `AZURE_SEARCH_INDEX` | Name of the V2 search index | Required |
@@ -171,7 +148,7 @@ Run the full test suite:
 poetry run pytest
 ```
 
-Tests live in `tests/` and mirror the `app/` structure. All external dependencies (SQL Server, Azure AI Search) are mocked in unit tests.
+Tests live in `tests/` and mirror the `app/` structure. All external dependencies (PostgreSQL, Azure AI Search) are mocked in unit tests.
 
 ## Project Structure
 
@@ -192,8 +169,6 @@ breach-search/
 ├── openspec/           # Feature specifications
 ├── plans/              # Roadmap and completed phase archive
 ├── strategies.yaml     # Default search strategies for V2 batch
-├── Dockerfile
-├── docker-compose.yml
 ├── pyproject.toml
 └── .env.example
 ```

@@ -7,7 +7,7 @@ The breach-search app's REST API layer (FastAPI, uvicorn) serves no external con
 **Goals:**
 - Replace all API endpoints with CLI commands that call the same service layer
 - Provide reproducible builds via Poetry (`pyproject.toml` + `poetry.lock`)
-- Provide one-command setup via Docker Compose (SQL Server + app)
+- Provide one-command setup via Docker Compose (app with Azure PostgreSQL)
 - Maintain all existing service functionality unchanged
 - Keep spec-driven, test-driven development approach (tests for CLI commands)
 
@@ -44,9 +44,9 @@ Poetry provides:
 
 `app/schemas/pii.py` contains `FieldMatchResult` and `CustomerSummary` — domain models used by the leak detection service, not API request/response schemas. Moving to `app/models/pii.py` reflects their actual purpose and prevents deletion when the `schemas/` directory is removed.
 
-### Decision 5: Docker Compose with SQL Server
+### Decision 5: Docker Compose with Azure PostgreSQL
 
-The `docker-compose.yml` includes `mcr.microsoft.com/mssql/server:2022-latest` so developers don't need a local SQL Server installation. The app container uses the same Poetry setup for consistency.
+The `docker-compose.yml` defines the app container configured to connect to Azure PostgreSQL (datasense-prod-pg-restored.postgres.database.azure.com). No local database container is needed. The app container uses the same Poetry setup for consistency.
 
 ## File Changes
 
@@ -60,7 +60,7 @@ The `docker-compose.yml` includes `mcr.microsoft.com/mssql/server:2022-latest` s
 | `tests/test_cli.py` | Click CliRunner tests for all commands |
 | `tests/services/test_batch_query_service.py` | Tests for extracted query functions |
 | `Dockerfile` | Multi-stage build for the app |
-| `docker-compose.yml` | SQL Server + app containers |
+| `docker-compose.yml` | App container (connects to Azure PostgreSQL) |
 | `README.md` | Setup and usage documentation |
 
 ### Move
