@@ -506,10 +506,10 @@ def test_seed_master_data_calls_correct_table(generated_data):
         f"Expected at least 10 execute calls, got {mock_cursor.execute.call_count}"
     )
 
-    # Verify the SQL references [PII].[master_data]
+    # Verify the SQL references "PII"."master_data" (PostgreSQL quoting)
     calls_sql = [str(call_args) for call_args in mock_cursor.execute.call_args_list]
-    assert any("[PII].[master_data]" in s for s in calls_sql), (
-        "seed_master_data SQL does not reference [PII].[master_data]"
+    assert any('"PII"."master_data"' in s for s in calls_sql), (
+        'seed_master_data SQL does not reference "PII"."master_data"'
     )
 
 
@@ -527,8 +527,8 @@ def test_seed_dlu_calls_correct_table(generated_data):
     n = seed_mod.seed_dlu_metadata(mock_cursor)
 
     calls_sql = [str(call_args) for call_args in mock_cursor.execute.call_args_list]
-    assert any("[DLU].[datalakeuniverse]" in s for s in calls_sql), (
-        "seed_dlu_metadata SQL does not reference [DLU].[datalakeuniverse]"
+    assert any('"DLU"."datalakeuniverse"' in s for s in calls_sql), (
+        'seed_dlu_metadata SQL does not reference "DLU"."datalakeuniverse"'
     )
     # V2: MD5 is the PK (not GUID)
     assert any("MD5" in s for s in calls_sql), (

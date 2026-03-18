@@ -543,9 +543,17 @@ class TestResultPersistence:
             "needs_review": False,
         }
 
+        # Only the first strategy returns a hit; others return empty so the
+        # md5 is attributed to a single strategy.
+        call_count = {"n": 0}
+
+        def _search_side_effect(*args, **kwargs):
+            call_count["n"] += 1
+            return [result_dict] if call_count["n"] == 1 else []
+
         with patch(
             "app.services.batch_service_v3.search_customer_strategy_v3",
-            return_value=[result_dict],
+            side_effect=_search_side_effect,
         ), _patch_load_strategies() as mock_load_strats, patch(
             "app.services.batch_service_v3.BatchRun",
             return_value=MagicMock(),
@@ -567,7 +575,7 @@ class TestResultPersistence:
 
         assert len(captured_results) >= 1
         row = captured_results[0]
-        assert row.strategy_name == "fullname_ssn"
+        assert json.loads(row.strategy_name) == ["fullname_ssn"]
 
     def test_result_row_leaked_fields_contains_only_found_fields(self):
         """leaked_fields JSON must only include fields where found=True."""

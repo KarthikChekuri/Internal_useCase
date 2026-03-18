@@ -25,19 +25,38 @@ Search breach files for customer PII using Azure AI Search and fuzzy matching.
    poetry install
    ```
 
-4. Seed the database with master customer data:
+4. Generate simulated breach files and seed CSVs:
+   ```bash
+   poetry run breach-search generate
+   ```
+   This creates `data/seed/` (master_data.csv, dlu_metadata.csv), `data/simulated_files/`, and `data/TEXT/` with ~27 breach files containing planted customer PII.
+
+5. Seed the database with master customer data and DLU metadata:
    ```bash
    poetry run breach-search seed
    ```
 
-5. Index breach files into Azure AI Search:
+6. Index breach files into Azure AI Search:
    ```bash
+   # V2 index (default — 6 fields)
    poetry run breach-search index
+
+   # V3 index (13 fields — includes PII flags)
+   poetry run breach-search index --v3
    ```
 
-6. Run a batch processing pass:
+7. Run a batch processing pass:
    ```bash
+   # V2 — Azure Search candidates + local regex/fuzzy detection
    poetry run breach-search run
+
+   # V3 — Azure Search for both candidate retrieval and PII matching
+   poetry run breach-search run --v3
+   ```
+
+8. Compare V2 and V3 results side-by-side:
+   ```bash
+   poetry run breach-search compare <V2_BATCH_ID> <V3_BATCH_ID>
    ```
 
 ## Database

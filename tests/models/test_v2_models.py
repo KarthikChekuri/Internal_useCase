@@ -726,7 +726,7 @@ class TestResultModel:
 
     def test_strategy_name_length(self):
         col = _col(self.Result, "strategy_name")
-        assert col.type.length == 100
+        assert col.type.length is None
 
     # --- leaked_fields ---
 
